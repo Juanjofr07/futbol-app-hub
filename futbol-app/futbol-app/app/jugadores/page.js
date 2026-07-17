@@ -16,8 +16,9 @@ export default function Jugadores() {
       if (!supabase) { setCargando(false); return; }
       const { data, error } = await supabase
         .from("perfiles")
-        .select("id, nombre, posicion, nivel")
+        .select("id, nombre, posicion, nivel, media_general")
         .order("nombre");
+      console.log("JUGADORES DATA:", data);
       if (error) console.error("ERROR JUGADORES:", error);
       setJugadores(data || []);
       setCargando(false);
@@ -75,14 +76,14 @@ export default function Jugadores() {
           <p>No se encontraron jugadores.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 justify-center">
           {filtrados.map((j) => (
             <Link key={j.id} href={`/jugadores/${j.id}`} className="hover:scale-105 transition-transform">
               <PlayerCard
                 mini
                 nombre={j.nombre || "Jugador"}
                 posicion={j.posicion || "MED"}
-                media={65}
+                media={j.media_general || 65}
                 nivel={j.nivel || 1}
                 avatar={null}
               />
