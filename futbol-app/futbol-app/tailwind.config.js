@@ -10,7 +10,15 @@ module.exports = {
         cancha: {
           verde: "#1D9E75",
           verdeoscuro: "#085041",
+          amarillo: "#F5C518",
+          gris: "#F4F6F8",
         },
+      },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+      },
+      boxShadow: {
+        card: "0 2px 16px 0 rgba(8,80,65,0.08)",
       },
     },
   },

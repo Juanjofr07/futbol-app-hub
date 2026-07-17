@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [usuario, setUsuario] = useState(null);
   const [esAdmin, setEsAdmin] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
-
     async function cargarPerfil(userId) {
       const { data } = await supabase
         .from("perfiles")
@@ -21,27 +22,17 @@ export default function Navbar() {
         .single();
       setEsAdmin(data?.es_admin || false);
     }
-
     async function cargarSesion() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       setUsuario(user);
       if (user) cargarPerfil(user.id);
     }
     cargarSesion();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUsuario(session?.user || null);
-        if (session?.user) {
-          cargarPerfil(session.user.id);
-        } else {
-          setEsAdmin(false);
-        }
-      }
-    );
-
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUsuario(session?.user || null);
+      if (session?.user) cargarPerfil(session.user.id);
+      else setEsAdmin(false);
+    });
     return () => listener?.subscription?.unsubscribe();
   }, []);
 
@@ -51,23 +42,99 @@ export default function Navbar() {
     router.refresh();
   }
 
+  const links = [
+    { href: "/", label: "Partidos" },
+    { href: "/jugadores", label: "Jugadores" },
+    { href: "/creditos", label: "Créditos" },
+    { href: "/perfil", label: "Mi Perfil" },
+  ];
+
   return (
-    <nav className="bg-cancha-verdeoscuro text-white px-6 py-4 flex items-center justify-between">
-      <Link href="/" className="font-semibold text-lg">
-        ⚽ Partidos BQTO
-      </Link>
-      <div className="flex gap-4 text-sm items-center">
-        <Link href="/">Partidos</Link>
-        <Link href="/perfil">Mi perfil</Link>
-        {esAdmin && <Link href="/admin">Crear partido</Link>}
-        {usuario ? (
-          <button onClick={salir} className="underline">
-            Salir
-          </button>
-        ) : (
-          <Link href="/login">Ingresar</Link>
-        )}
+    <nav className="bg-cancha-verdeoscuro text-white shadow-lg">
+      <div className="max-w-5xl mx-auto px-4 py-0 flex items-center justify-between h-16">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
+          <span className="text-2xl">⚽</span>
+          <span className="text-cancha-amarillo">Gol</span>
+          <span>BQTO</span>
+        </Link>
+
+        {/* Desktop links */}
+        <div className="hidden md:flex items-center gap-1">
+          {links.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                pathname === href
+                  ? "bg-white/10 text-cancha-amarillo"
+                  : "hover:bg-white/10 text-white/80 hover:text-white"
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+          {esAdmin && (
+            <Link href="/admin" className="px-3 py-2 rounded-lg text-sm font-medium text-cancha-amarillo hover:bg-white/10 transition-colors">
+              Admin
+            </Link>
+          )}
+          {usuario ? (
+            <button
+              onClick={salir}
+              className="ml-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
+            >
+              Salir
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="ml-2 px-4 py-2 bg-cancha-amarillo text-cancha-verdeoscuro rounded-lg text-sm font-semibold hover:bg-yellow-400 transition-colors"
+            >
+              Ingresar
+            </Link>
+          )}
+        </div>
+
+        {/* Mobile hamburger */}
+        <button
+          className="md:hidden p-2 rounded-lg hover:bg-white/10"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Menú"
+        >
+          <div className={`w-5 h-0.5 bg-white mb-1 transition-all ${menuOpen ? "rotate-45 translate-y-1.5" : ""}`} />
+          <div className={`w-5 h-0.5 bg-white mb-1 transition-all ${menuOpen ? "opacity-0" : ""}`} />
+          <div className={`w-5 h-0.5 bg-white transition-all ${menuOpen ? "-rotate-45 -translate-y-1.5" : ""}`} />
+        </button>
       </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="md:hidden bg-cancha-verdeoscuro border-t border-white/10 px-4 pb-4 flex flex-col gap-1">
+          {links.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setMenuOpen(false)}
+              className="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10"
+            >
+              {label}
+            </Link>
+          ))}
+          {esAdmin && (
+            <Link href="/admin" onClick={() => setMenuOpen(false)} className="px-3 py-2 rounded-lg text-sm font-medium text-cancha-amarillo hover:bg-white/10">Admin</Link>
+          )}
+          {usuario ? (
+            <button onClick={salir} className="px-3 py-2 text-left rounded-lg text-sm font-medium hover:bg-white/10">
+              Salir
+            </button>
+          ) : (
+            <Link href="/login" onClick={() => setMenuOpen(false)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-cancha-amarillo text-cancha-verdeoscuro text-center mt-1">
+              Ingresar
+            </Link>
+          )}
+        </div>
+      )}
     </nav>
   );
 }
