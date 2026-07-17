@@ -17,11 +17,26 @@ export default async function DetallePartido({ params }) {
       .single();
     partido = partidoData;
 
-    const { data: inscripcionesData } = await supabase
-      .from("inscripciones")
-      .select("id, perfiles(nombre)")
-      .eq("partido_id", id);
-    inscritos = inscripcionesData || [];
+   const { data: inscripcionesData } = await supabase
+  .from("inscripciones")
+  .select("id, usuario_id")
+  .eq("partido_id", id);
+
+const idsUsuarios = (inscripcionesData || []).map((i) => i.usuario_id);
+
+let perfilesData = [];
+if (idsUsuarios.length > 0) {
+  const { data } = await supabase
+    .from("perfiles")
+    .select("id, nombre")
+    .in("id", idsUsuarios);
+  perfilesData = data || [];
+}
+
+inscritos = (inscripcionesData || []).map((i) => ({
+  id: i.id,
+  nombre: perfilesData.find((p) => p.id === i.usuario_id)?.nombre || "Jugador",
+}));
   }
 
   if (!partido) {
