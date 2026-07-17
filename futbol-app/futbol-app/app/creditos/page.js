@@ -9,11 +9,13 @@ export default function CreditosPage() {
   const [creditosActuales, setCreditosActuales] = useState(null);
   const [packages, setPackages] = useState([]);
   const [settings, setSettings] = useState([]);
-  const [seleccionado, setSeleccionado] = useState(null);
-  const [metodo, setMetodo] = useState("pago_movil");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [mensaje, setMensaje] = useState("");
+
+  const [paso, setPaso] = useState("paquetes");
+  const [seleccionado, setSeleccionado] = useState(null);
+  const [metodo, setMetodo] = useState("pago_movil");
 
   const [form, setForm] = useState({
     reference: "",
@@ -77,6 +79,19 @@ export default function CreditosPage() {
     () => settings.find((s) => s.metodo === metodo) || null,
     [settings, metodo]
   );
+
+  function elegirPaquete(pkg) {
+    setSeleccionado(pkg.code);
+    setPaso("pasarela");
+  }
+
+  function volverAPaquetes() {
+    setPaso("paquetes");
+  }
+
+  function continuarAReporte() {
+    setPaso("reporte");
+  }
 
   async function subirComprobante(file, userId) {
     const ext = file.name.split(".").pop();
@@ -146,6 +161,7 @@ export default function CreditosPage() {
         amount_bs: "",
       });
       e.target.reset();
+      setPaso("confirmado");
     } catch (error) {
       setMensaje(error.message || "No se pudo reportar el pago.");
     } finally {
@@ -161,7 +177,7 @@ export default function CreditosPage() {
     <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Paquetes de créditos</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Créditos</h1>
           <p className="text-sm text-gray-500 mt-1">
             Compra créditos y úsalos para unirte a partidos.
           </p>
@@ -177,166 +193,235 @@ export default function CreditosPage() {
         )}
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {packages.map((pkg) => (
-          <button
-            key={pkg.id}
-            type="button"
-            onClick={() => setSeleccionado(pkg.code)}
-            className={`text-left rounded-2xl bg-white p-5 shadow-card border transition ${
-              seleccionado === pkg.code
-                ? "border-cancha-verde ring-2 ring-cancha-verde/30"
-                : "border-gray-100 hover:border-cancha-verde/30"
-            }`}
-          >
-            <p className="text-xs text-gray-500">{pkg.code.toUpperCase()}</p>
-            <h3 className="font-bold text-lg text-gray-800 mt-1">{pkg.nombre}</h3>
-            <p className="text-cancha-verde font-black text-2xl mt-3">{pkg.creditos} ⚡</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {formatCurrency(pkg.precio_usd, "USD")}
-            </p>
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl p-5 shadow-card border border-gray-100">
-        <h2 className="font-semibold text-gray-800 mb-3">Método de pago</h2>
-
-        <div className="flex gap-3 flex-wrap">
-          {["pago_movil", "zelle"].map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMetodo(m)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-                metodo === m
-                  ? "bg-cancha-verde text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+      {paso === "paquetes" && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {packages.map((pkg) => (
+            <div
+              key={pkg.id}
+              className="text-left rounded-2xl bg-white p-5 shadow-card border border-gray-100 flex flex-col justify-between"
             >
-              {getMetodoLabel(m)}
-            </button>
+              <div>
+                <p className="text-xs text-gray-500">{pkg.code.toUpperCase()}</p>
+                <h3 className="font-bold text-lg text-gray-800 mt-1">{pkg.nombre}</h3>
+                <p className="text-cancha-verde font-black text-2xl mt-3">
+                  {pkg.creditos} ⚡
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {formatCurrency(pkg.precio_usd, "USD")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => elegirPaquete(pkg)}
+                className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold bg-cancha-verde text-white hover:bg-cancha-verdeoscuro transition"
+              >
+                Comprar
+              </button>
+            </div>
           ))}
         </div>
+      )}
 
-        {metodoConfig && (
-          <div className="mt-5 rounded-2xl bg-cancha-gris p-4">
-            <h3 className="font-semibold text-gray-800 mb-2">
-              Instrucciones de {getMetodoLabel(metodo)}
-            </h3>
+      {paso === "pasarela" && paquete && (
+        <div className="bg-white rounded-2xl p-5 shadow-card border border-gray-100 flex flex-col gap-5">
+          <button
+            type="button"
+            onClick={volverAPaquetes}
+            className="text-sm text-gray-500 hover:text-gray-700 self-start"
+          >
+            ← Volver a paquetes
+          </button>
 
-            {metodo === "pago_movil" ? (
-              <div className="text-sm text-gray-700 space-y-1">
-                <p>Banco: {metodoConfig.banco}</p>
-                <p>Teléfono: {metodoConfig.telefono}</p>
-                <p>Documento: {metodoConfig.documento}</p>
-                <p>Titular: {metodoConfig.titular}</p>
-                {metodoConfig.instrucciones && <p>{metodoConfig.instrucciones}</p>}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-700 space-y-1">
-                <p>Correo Zelle: {metodoConfig.correo_zelle}</p>
-                <p>Beneficiario: {metodoConfig.nombre_zelle}</p>
-                {metodoConfig.instrucciones && <p>{metodoConfig.instrucciones}</p>}
-              </div>
-            )}
+          <div className="rounded-xl bg-cancha-gris p-4">
+            <p className="text-sm text-gray-500">Paquete seleccionado</p>
+            <p className="font-bold text-gray-800">
+              {paquete.nombre} · {paquete.creditos} créditos ·{" "}
+              {formatCurrency(paquete.precio_usd, "USD")}
+            </p>
           </div>
-        )}
-      </div>
 
-      <form
-        onSubmit={reportarPago}
-        className="bg-white rounded-2xl p-5 shadow-card border border-gray-100 flex flex-col gap-4"
-      >
-        <div>
-          <h2 className="font-semibold text-gray-800">Ya pagué</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Reporta tu pago para que el admin lo apruebe y se acrediten tus créditos.
-          </p>
-        </div>
-
-        {!usuario && (
-          <div className="rounded-xl bg-yellow-50 text-yellow-800 px-4 py-3 text-sm">
-            Debes iniciar sesión antes de reportar un pago.
+          <div>
+            <h2 className="font-semibold text-gray-800 mb-3">Método de pago</h2>
+            <div className="flex gap-3 flex-wrap">
+              {["pago_movil", "zelle"].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetodo(m)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                    metodo === m
+                      ? "bg-cancha-verde text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {getMetodoLabel(m)}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <input
-            placeholder="Referencia"
-            value={form.reference}
-            onChange={(e) => setForm({ ...form, reference: e.target.value })}
-            className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
-            required
-          />
-          <input
-            placeholder="Nombre de quien pagó"
-            value={form.payer_name}
-            onChange={(e) => setForm({ ...form, payer_name: e.target.value })}
-            className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
-            required
-          />
-          <input
-            placeholder="Teléfono del emisor"
-            value={form.payer_phone}
-            onChange={(e) => setForm({ ...form, payer_phone: e.target.value })}
-            className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
-          />
-          <input
-            placeholder="Documento del emisor"
-            value={form.payer_document}
-            onChange={(e) => setForm({ ...form, payer_document: e.target.value })}
-            className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
-          />
-          <input
-            placeholder="Banco emisor"
-            value={form.payer_bank}
-            onChange={(e) => setForm({ ...form, payer_bank: e.target.value })}
-            className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
-          />
-          <input
-            placeholder="Monto en Bs. (opcional)"
-            type="number"
-            step="0.01"
-            value={form.amount_bs}
-            onChange={(e) => setForm({ ...form, amount_bs: e.target.value })}
-            className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
-          />
+          {metodoConfig ? (
+            <div className="rounded-2xl bg-cancha-gris p-4">
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Datos para pagar por {getMetodoLabel(metodo)}
+              </h3>
+
+              {metodo === "pago_movil" ? (
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p>Banco: {metodoConfig.banco}</p>
+                  <p>Teléfono: {metodoConfig.telefono}</p>
+                  <p>Documento: {metodoConfig.documento}</p>
+                  <p>Titular: {metodoConfig.titular}</p>
+                  {metodoConfig.instrucciones && <p>{metodoConfig.instrucciones}</p>}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p>Correo Zelle: {metodoConfig.correo_zelle}</p>
+                  <p>Beneficiario: {metodoConfig.nombre_zelle}</p>
+                  {metodoConfig.instrucciones && <p>{metodoConfig.instrucciones}</p>}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl bg-yellow-50 text-yellow-800 px-4 py-3 text-sm">
+              No hay datos configurados para este método todavía.
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={!metodoConfig}
+            onClick={continuarAReporte}
+            className={`rounded-xl py-3 text-sm font-bold transition ${
+              !metodoConfig
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-cancha-verde text-white hover:bg-cancha-verdeoscuro"
+            }`}
+          >
+            Ya pagué, continuar
+          </button>
         </div>
+      )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Comprobante
-          </label>
-          <input
-            type="file"
-            name="proof"
-            accept="image/*,.pdf"
-            className="block w-full text-sm"
-          />
-        </div>
-
-        {paquete && (
-          <div className="rounded-xl bg-green-50 text-green-800 px-4 py-3 text-sm">
-            Vas a reportar el paquete <strong>{paquete.nombre}</strong> por{" "}
-            {formatCurrency(paquete.precio_usd, "USD")}.
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={!usuario || !paquete || submitting}
-          className={`rounded-xl py-3 text-sm font-bold transition ${
-            !usuario || !paquete || submitting
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-              : "bg-cancha-verde text-white hover:bg-cancha-verdeoscuro"
-          }`}
+      {paso === "reporte" && paquete && (
+        <form
+          onSubmit={reportarPago}
+          className="bg-white rounded-2xl p-5 shadow-card border border-gray-100 flex flex-col gap-4"
         >
-          {submitting ? "Enviando..." : "Reportar pago"}
-        </button>
+          <button
+            type="button"
+            onClick={() => setPaso("pasarela")}
+            className="text-sm text-gray-500 hover:text-gray-700 self-start"
+          >
+            ← Volver a datos de pago
+          </button>
 
-        {mensaje && <p className="text-sm text-gray-500">{mensaje}</p>}
-      </form>
+          <div>
+            <h2 className="font-semibold text-gray-800">Reportar mi pago</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Paquete <strong>{paquete.nombre}</strong> por{" "}
+              {formatCurrency(paquete.precio_usd, "USD")} vía{" "}
+              {getMetodoLabel(metodo)}.
+            </p>
+          </div>
+
+          {!usuario && (
+            <div className="rounded-xl bg-yellow-50 text-yellow-800 px-4 py-3 text-sm">
+              Debes iniciar sesión antes de reportar un pago.
+            </div>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <input
+              placeholder="Referencia"
+              value={form.reference}
+              onChange={(e) => setForm({ ...form, reference: e.target.value })}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
+              required
+            />
+            <input
+              placeholder="Nombre de quien pagó"
+              value={form.payer_name}
+              onChange={(e) => setForm({ ...form, payer_name: e.target.value })}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
+              required
+            />
+            <input
+              placeholder="Teléfono del emisor"
+              value={form.payer_phone}
+              onChange={(e) => setForm({ ...form, payer_phone: e.target.value })}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
+            />
+            <input
+              placeholder="Documento del emisor"
+              value={form.payer_document}
+              onChange={(e) => setForm({ ...form, payer_document: e.target.value })}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
+            />
+            <input
+              placeholder="Banco emisor"
+              value={form.payer_bank}
+              onChange={(e) => setForm({ ...form, payer_bank: e.target.value })}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
+            />
+            <input
+              placeholder="Monto en Bs. (opcional)"
+              type="number"
+              step="0.01"
+              value={form.amount_bs}
+              onChange={(e) => setForm({ ...form, amount_bs: e.target.value })}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Comprobante
+            </label>
+            <input
+              type="file"
+              name="proof"
+              accept="image/*,.pdf"
+              className="block w-full text-sm"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={!usuario || submitting}
+            className={`rounded-xl py-3 text-sm font-bold transition ${
+              !usuario || submitting
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-cancha-verde text-white hover:bg-cancha-verdeoscuro"
+            }`}
+          >
+            {submitting ? "Enviando..." : "Reportar pago"}
+          </button>
+
+          {mensaje && <p className="text-sm text-gray-500">{mensaje}</p>}
+        </form>
+      )}
+
+      {paso === "confirmado" && (
+        <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-100 flex flex-col items-center gap-4 text-center">
+          <span className="text-5xl">✅</span>
+          <h2 className="font-bold text-gray-800 text-lg">Pago reportado</h2>
+          <p className="text-sm text-gray-500 max-w-sm">
+            Tu pago quedó pendiente por aprobación. En cuanto sea confirmado, se
+            acreditarán tus créditos automáticamente.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPaso("paquetes");
+              setSeleccionado(null);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-cancha-verde text-white text-sm font-semibold"
+          >
+            Volver a paquetes
+          </button>
+        </div>
+      )}
     </div>
   );
 }
