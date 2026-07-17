@@ -24,29 +24,86 @@ export default function PartidoCard({ partido }) {
 
   async function unirse() {
     if (!supabase) return;
+
     setCargando(true);
     setMensaje("");
-    const { data: { user } } = await supabase.auth.getUser();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       setMensaje("Primero inicia sesión para unirte.");
       setCargando(false);
       return;
     }
-    const { error } = await supabase
+
+    const { data: perfil } = await supabase
+      .from("perfiles")
+      .select("creditos")
+      .eq("id", user.id)
+      .single();
+
+    const creditos = perfil?.creditos ?? 0;
+
+    if (creditos < 1) {
+      setMensaje("No tienes créditos suficientes. Recarga antes de unirte.");
+      setCargando(false);
+      return;
+    }
+
+    const { data: yaInscrito } = await supabase
+      .from("inscripciones")
+      .select("id")
+      .eq("partido_id", partido.id)
+      .eq("usuario_id", user.id)
+      .maybeSingle();
+
+    if (yaInscrito) {
+      setMensaje("Ya estás inscrito en este partido.");
+      setCargando(false);
+      return;
+    }
+
+    const nuevoBalance = creditos - 1;
+
+    const { error: updateError } = await supabase
+      .from("perfiles")
+      .update({ creditos: nuevoBalance })
+      .eq("id", user.id);
+
+    if (updateError) {
+      setMensaje("No se pudo descontar el crédito.");
+      setCargando(false);
+      return;
+    }
+
+    const { error: inscripcionError } = await supabase
       .from("inscripciones")
       .insert({ partido_id: partido.id, usuario_id: user.id });
-    setCargando(false);
-    if (error) {
+
+    if (inscripcionError) {
+      await supabase.from("perfiles").update({ creditos }).eq("id", user.id);
       setMensaje("No se pudo unir al partido.");
-    } else {
-      setMensaje("¡Te uniste al partido!");
-      router.refresh();
+      setCargando(false);
+      return;
     }
+
+    await supabase.from("credit_ledger").insert({
+      user_id: user.id,
+      partido_id: partido.id,
+      delta: -1,
+      reason: "match_join",
+      balance_after: nuevoBalance,
+    });
+
+    setMensaje("¡Te uniste al partido! Se descontó 1 crédito.");
+    setCargando(false);
+    router.refresh();
   }
 
   return (
     <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow">
-      {/* Header verde */}
       <div className="bg-gradient-to-r from-cancha-verdeoscuro to-cancha-verde px-5 py-3 flex items-center justify-between">
         <div>
           <h3 className="font-bold text-white text-base">{partido.cancha}</h3>
@@ -54,13 +111,11 @@ export default function PartidoCard({ partido }) {
         </div>
         <div className="text-right">
           <span className="text-cancha-amarillo font-bold text-lg">${partido.precio}</span>
-          <p className="text-white/60 text-xs">por jugador</p>
+          <p className="text-white/60 text-xs">equivale a 1 crédito</p>
         </div>
       </div>
 
-      {/* Body */}
       <div className="px-5 py-4 flex flex-col gap-3">
-        {/* Fecha y hora */}
         <div className="flex items-center gap-4 text-sm text-gray-600">
           <span className="flex items-center gap-1">
             <span>📅</span> {formatFecha(partido.fecha)}
@@ -70,7 +125,6 @@ export default function PartidoCard({ partido }) {
           </span>
         </div>
 
-        {/* Barra de ocupación */}
         <div>
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>{lleno ? "Cupo lleno" : `${cuposLibres} cupos disponibles`}</span>
@@ -86,7 +140,6 @@ export default function PartidoCard({ partido }) {
           </div>
         </div>
 
-        {/* Acciones */}
         <div className="flex gap-2 mt-1">
           <button
             disabled={lleno || cargando}
@@ -108,9 +161,13 @@ export default function PartidoCard({ partido }) {
         </div>
 
         {mensaje && (
-          <p className={`text-xs text-center rounded-lg py-1.5 px-2 ${
-            mensaje.includes("uniste") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-          }`}>
+          <p
+            className={`text-xs text-center rounded-lg py-1.5 px-2 ${
+              mensaje.includes("uniste")
+                ? "bg-green-50 text-green-700"
+                : "bg-red-50 text-red-600"
+            }`}
+          >
             {mensaje}
           </p>
         )}
