@@ -169,22 +169,23 @@ export default function Perfil() {
         <div className="flex flex-col gap-3">
           <h2 className="font-semibold text-gray-700">🃏 Mi carta</h2>
           <PlayerCard
-            nombre={perfil.nombre || "Jugador"}
-            posicion={perfil.posicion || "MED"}
-            media={stats?.media_general || 65}
-            stats={{
-              ritmo: stats?.ritmo || 65,
-              tiro: stats?.tiro || 63,
-              pase: stats?.pase || 62,
-              regate: stats?.regate || 65,
-              defensa: stats?.defensa || 40,
-              fisico: stats?.fisico || 63,
-            }}
-            nivel={stats?.nivel || 1}
-            partidosJugados={stats?.partidos_jugados || 0}
-            goles={stats?.goles_total || 0}
-            asistencias={stats?.asistencias_total || 0}
-          />
+  nombre={perfil.nombre || "Jugador"}
+  posicion={perfil.posicion || "MED"}
+  media={stats?.media_general || 65}
+  stats={{
+    ritmo: stats?.ritmo || 65,
+    tiro: stats?.tiro || 63,
+    pase: stats?.pase || 62,
+    regate: stats?.regate || 65,
+    defensa: stats?.defensa || 40,
+    fisico: stats?.fisico || 63,
+  }}
+  nivel={stats?.nivel || 1}
+  partidosJugados={stats?.partidos_jugados || 0}
+  goles={stats?.goles_total || 0}
+  asistencias={stats?.asistencias_total || 0}
+  avatar={perfil.avatar_url || null}
+/>
         </div>
 
         {/* Info + Logros */}
