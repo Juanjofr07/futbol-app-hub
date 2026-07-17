@@ -19,12 +19,27 @@ export default function Perfil() {
   const [perfil, setPerfil] = useState(null);
   const [stats, setStats] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [mensajeFoto, setMensajeFoto] = useState("");
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
     async function cargar() {
-      if (!supabase) { setCargando(false); return; }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setCargando(false); return; }
+      if (!supabase) {
+        setCargando(false);
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setCargando(false);
+        return;
+      }
+
+      setUserId(user.id);
 
       const [{ data: p }, { data: st }] = await Promise.all([
         supabase.from("perfiles").select("*").eq("id", user.id).single(),
@@ -32,16 +47,90 @@ export default function Perfil() {
       ]);
 
       setPerfil(p);
-      setStats(st || {
-        partidos_jugados: 0, goles_total: 0, asistencias_total: 0,
-        media_general: 65, ritmo: 65, tiro: 63, pase: 62,
-        regate: 65, defensa: 40, fisico: 63,
-        nivel: 1, max_goles_partido: 0, vallas_invictas: 0, partidos_menos3_goles: 0,
-      });
+      setStats(
+        st || {
+          partidos_jugados: 0,
+          goles_total: 0,
+          asistencias_total: 0,
+          media_general: 65,
+          ritmo: 65,
+          tiro: 63,
+          pase: 62,
+          regate: 65,
+          defensa: 40,
+          fisico: 63,
+          nivel: 1,
+          max_goles_partido: 0,
+          vallas_invictas: 0,
+          partidos_menos3_goles: 0,
+        }
+      );
       setCargando(false);
     }
+
     cargar();
   }, []);
+
+  async function subirFoto(e) {
+    const file = e.target.files?.[0];
+    if (!file || !supabase || !userId) return;
+
+    setMensajeFoto("");
+
+    if (!file.type.startsWith("image/")) {
+      setMensajeFoto("Solo puedes subir imágenes.");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setMensajeFoto("La imagen no puede pesar más de 2MB.");
+      return;
+    }
+
+    try {
+      setSubiendoFoto(true);
+
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const filePath = `${userId}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        setMensajeFoto(uploadError.message);
+        setSubiendoFoto(false);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const avatar_url = publicUrlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from("perfiles")
+        .update({ avatar_url })
+        .eq("id", userId);
+
+      if (updateError) {
+        setMensajeFoto(updateError.message);
+        setSubiendoFoto(false);
+        return;
+      }
+
+      setPerfil((prev) => ({ ...prev, avatar_url }));
+      setMensajeFoto("Foto actualizada correctamente.");
+    } catch (error) {
+      setMensajeFoto("Ocurrió un error subiendo la foto.");
+    } finally {
+      setSubiendoFoto(false);
+    }
+  }
 
   if (cargando) {
     return (
@@ -59,14 +148,17 @@ export default function Perfil() {
         <p className="text-gray-500 text-center max-w-sm">
           Inicia sesión para ver tu carta de jugador, tus estadísticas y tus logros.
         </p>
-        <Link href="/login" className="px-6 py-3 bg-cancha-verde text-white font-bold rounded-xl hover:bg-cancha-verdeoscuro transition-colors">
+        <Link
+          href="/login"
+          className="px-6 py-3 bg-cancha-verde text-white font-bold rounded-xl hover:bg-cancha-verdeoscuro transition-colors"
+        >
           Iniciar sesión
         </Link>
       </div>
     );
   }
 
-  const logrosDesbloqueados = stats ? LOGROS_DEF.filter(l => l.condicion(stats)) : [];
+  const logrosDesbloqueados = stats ? LOGROS_DEF.filter((l) => l.condicion(stats)) : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -100,20 +192,50 @@ export default function Perfil() {
           {/* Info básica */}
           <div className="bg-white rounded-2xl shadow-card p-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-cancha-verde/20 flex items-center justify-center text-cancha-verdeoscuro font-bold text-xl">
-                {perfil.nombre ? perfil.nombre.slice(0, 2).toUpperCase() : "?"}
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-cancha-verde/20 flex items-center justify-center text-cancha-verdeoscuro font-bold text-xl">
+                {perfil.avatar_url ? (
+                  <img
+                    src={perfil.avatar_url}
+                    alt="Foto de perfil"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  perfil.nombre ? perfil.nombre.slice(0, 2).toUpperCase() : "?"
+                )}
               </div>
-              <div>
+
+              <div className="flex-1">
                 <p className="font-bold text-gray-800">{perfil.nombre || "Sin nombre"}</p>
                 <p className="text-sm text-gray-500">{perfil.telefono}</p>
               </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2">
+              <label className="text-sm font-medium text-gray-700">
+                Subir foto de perfil
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={subirFoto}
+                className="text-sm text-gray-600"
+                disabled={subiendoFoto}
+              />
+              {subiendoFoto && (
+                <p className="text-xs text-gray-500">Subiendo foto...</p>
+              )}
+              {mensajeFoto && (
+                <p className="text-xs text-gray-500">{mensajeFoto}</p>
+              )}
             </div>
 
             {/* Créditos */}
             <div className="mt-4 flex items-center justify-between bg-cancha-gris rounded-xl p-3">
               <div>
                 <p className="text-xs text-gray-500">Créditos disponibles</p>
-                <p className="font-black text-cancha-verdeoscuro text-xl">{perfil.creditos || 0} ⚡</p>
+                <p className="font-black text-cancha-verdeoscuro text-xl">
+                  {perfil.creditos || 0} ⚡
+                </p>
               </div>
               <Link
                 href="/creditos"
@@ -129,7 +251,7 @@ export default function Perfil() {
             <h2 className="font-semibold text-gray-700 mb-3">🏆 Logros</h2>
             <div className="grid grid-cols-2 gap-2">
               {LOGROS_DEF.map((logro) => {
-                const desbloqueado = logrosDesbloqueados.some(l => l.id === logro.id);
+                const desbloqueado = logrosDesbloqueados.some((l) => l.id === logro.id);
                 return (
                   <div
                     key={logro.id}
