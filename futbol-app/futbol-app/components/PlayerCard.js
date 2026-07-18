@@ -9,7 +9,7 @@ const TIERS = [
     ring: "ring-blue-400/70",
     glowColor: "rgba(59,130,246,0.6)",
     animClass: "animate-glow-toty",
-    sparkle: false,
+    decor: "lightning",
   },
   {
     min: 90,
@@ -21,7 +21,7 @@ const TIERS = [
     ring: "ring-yellow-400/80",
     glowColor: "rgba(234,179,8,0.55)",
     animClass: "animate-glow-icono",
-    sparkle: true,
+    decor: "sparkle",
   },
   {
     min: 80,
@@ -33,7 +33,7 @@ const TIERS = [
     ring: "ring-amber-300/70",
     glowColor: "rgba(217,119,6,0.45)",
     animClass: "animate-glow-oro",
-    sparkle: false,
+    decor: null,
   },
   {
     min: 70,
@@ -45,7 +45,7 @@ const TIERS = [
     ring: "ring-slate-300/70",
     glowColor: "rgba(100,116,139,0.35)",
     animClass: "animate-glow-plata",
-    sparkle: false,
+    decor: null,
   },
   {
     min: 0,
@@ -57,9 +57,51 @@ const TIERS = [
     ring: "ring-orange-900/40",
     glowColor: "rgba(111,58,32,0.4)",
     animClass: "animate-glow-bronce",
-    sparkle: false,
+    decor: null,
   },
 ];
+
+const SIZES = {
+  mini: {
+    width: "w-[150px]",
+    avatar: 56,
+    ovr: "text-3xl",
+    name: "text-sm",
+    label: "text-[10px]",
+    attrValue: "text-xs",
+    attrLabel: "text-[10px]",
+    pad: "px-3 pt-4",
+    barPad: "py-1.5",
+    barText: "text-[11px]",
+    boltSize: 20,
+  },
+  md: {
+    width: "w-[230px]",
+    avatar: 72,
+    ovr: "text-3xl",
+    name: "text-sm",
+    label: "text-[10px]",
+    attrValue: "text-xs",
+    attrLabel: "text-[10px]",
+    pad: "px-3 pt-4",
+    barPad: "py-1.5",
+    barText: "text-[11px]",
+    boltSize: 22,
+  },
+  lg: {
+    width: "w-[300px]",
+    avatar: 108,
+    ovr: "text-5xl",
+    name: "text-xl",
+    label: "text-xs",
+    attrValue: "text-base",
+    attrLabel: "text-xs",
+    pad: "px-6 pt-8",
+    barPad: "py-2.5",
+    barText: "text-sm",
+    boltSize: 32,
+  },
+};
 
 function getTier(media) {
   return TIERS.find((t) => media >= t.min) ?? TIERS[TIERS.length - 1];
@@ -97,6 +139,33 @@ function Sparkle({ className = "", size = 12, delay = "0s", color = "#fff" }) {
   );
 }
 
+function Lightning({ className = "", size = 20, delay = "0s", color = "#fff" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={color}
+      aria-hidden="true"
+      className={`pointer-events-none absolute animate-lightning motion-reduce:animate-none ${className}`}
+      style={{ width: size, height: size, animationDelay: delay }}
+    >
+      <path d="M13 0 L3 14 H9 L7 24 L21 8 H13 Z" />
+    </svg>
+  );
+}
+
+function Sheen() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 animate-sheen motion-reduce:animate-none"
+      style={{
+        background:
+          "linear-gradient(75deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)",
+      }}
+    />
+  );
+}
+
 export default function PlayerCard({
   nombre = "Jugador",
   posicion = "MED",
@@ -105,8 +174,12 @@ export default function PlayerCard({
   nivel,
   avatar,
   mini = false,
+  size,
 }) {
   const tier = getTier(media);
+  const resolvedSize = size || (mini ? "mini" : "md");
+  const dims = SIZES[resolvedSize] ?? SIZES.md;
+  const isMini = resolvedSize === "mini";
 
   const attrs = stats
     ? [
@@ -121,12 +194,12 @@ export default function PlayerCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[1.4rem] ring-1 ${tier.ring} ${tier.animClass} motion-reduce:animate-none ${
-        mini ? "w-[150px]" : "w-[230px]"
-      }`}
+      className={`relative overflow-hidden rounded-[1.4rem] ring-1 ${tier.ring} ${tier.animClass} motion-reduce:animate-none ${dims.width}`}
       style={{ background: tier.cardBg, "--glow-color": tier.glowColor }}
     >
-      {tier.sparkle && (
+      <Sheen />
+
+      {tier.decor === "sparkle" && (
         <>
           <Sparkle className="top-[8%] left-[14%]" size={14} delay="0s" color={tier.subText} />
           <Sparkle className="top-[18%] right-[10%]" size={10} delay="0.6s" color={tier.subText} />
@@ -134,42 +207,54 @@ export default function PlayerCard({
         </>
       )}
 
-      <div className="relative flex flex-col items-center px-3 pt-4">
-        <span className="text-[10px] font-bold tracking-[0.2em]" style={{ color: tier.subText }}>
+      {tier.decor === "lightning" && (
+        <>
+          <Lightning className="top-[10%] left-[10%]" size={dims.boltSize} delay="0s" color="#bfdbfe" />
+          <Lightning
+            className="bottom-[38%] right-[8%]"
+            size={dims.boltSize * 0.7}
+            delay="1.8s"
+            color="#bfdbfe"
+          />
+        </>
+      )}
+
+      <div className={`relative flex flex-col items-center ${dims.pad}`}>
+        <span className={`${dims.label} font-bold tracking-[0.2em]`} style={{ color: tier.subText }}>
           OVR
         </span>
-        <span className="text-3xl font-black leading-none" style={{ color: tier.textColor }}>
+        <span className={`${dims.ovr} font-black leading-none`} style={{ color: tier.textColor }}>
           {media}
         </span>
-        <span className="mt-0.5 text-[11px] font-bold tracking-wide" style={{ color: tier.subText }}>
+        <span className={`mt-0.5 ${dims.label} font-bold tracking-wide`} style={{ color: tier.subText }}>
           {posicion}
         </span>
 
         <div className="my-3">
-          <Avatar src={avatar} alt={nombre} size={mini ? 56 : 72} />
+          <Avatar src={avatar} alt={nombre} size={dims.avatar} />
         </div>
 
         <p
-          className="text-center text-sm font-extrabold leading-tight line-clamp-2 px-1"
+          className={`text-center ${dims.name} font-extrabold leading-tight line-clamp-2 px-1`}
           style={{ color: tier.textColor }}
         >
           {nombre}
         </p>
 
         {nivel ? (
-          <p className="mt-0.5 text-[10px] font-semibold opacity-80" style={{ color: tier.subText }}>
+          <p className={`mt-0.5 ${dims.label} font-semibold opacity-80`} style={{ color: tier.subText }}>
             Nivel {nivel}
           </p>
         ) : null}
 
-        {!mini && attrs.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 gap-x-2 gap-y-1.5 w-full pb-3">
+        {!isMini && attrs.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 w-full pb-3">
             {attrs.map((a) => (
               <div key={a.label} className="flex items-center justify-center gap-1">
-                <span className="text-xs font-black" style={{ color: tier.textColor }}>
+                <span className={`${dims.attrValue} font-black`} style={{ color: tier.textColor }}>
                   {a.value ?? "-"}
                 </span>
-                <span className="text-[10px] font-semibold opacity-70" style={{ color: tier.subText }}>
+                <span className={`${dims.attrLabel} font-semibold opacity-70`} style={{ color: tier.subText }}>
                   {a.label}
                 </span>
               </div>
@@ -179,7 +264,7 @@ export default function PlayerCard({
       </div>
 
       <div
-        className="relative mt-3 py-1.5 text-center text-[11px] font-bold tracking-[0.15em]"
+        className={`relative ${dims.barPad} text-center ${dims.barText} font-bold tracking-[0.15em]`}
         style={{ background: tier.barBg, color: tier.subText }}
       >
         {tier.label}

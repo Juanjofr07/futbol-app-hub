@@ -128,9 +128,10 @@ export default function PartidoCard({ partido }) {
 
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
 
-        <div className="absolute top-4 right-4 flex flex-col items-end">
-          <span className="text-white font-black text-lg leading-none drop-shadow-md">${partido.precio}</span>
-          <span className="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1.5 drop-shadow-md">1 Crédito</span>
+        <div className="absolute top-4 right-4">
+          <span className="inline-flex items-center bg-amber-100 border border-amber-300 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
+            {partido.creditos ?? 1} {(partido.creditos ?? 1) === 1 ? "crédito" : "créditos"}
+          </span>
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-5">
