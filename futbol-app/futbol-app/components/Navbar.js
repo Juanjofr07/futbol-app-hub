@@ -50,6 +50,11 @@ export default function Navbar() {
     };
   }, []);
 
+  // Cierra el menú móvil automáticamente al cambiar de página
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   async function salir() {
     await supabase.auth.signOut();
     setMenuOpen(false);
@@ -154,11 +159,94 @@ export default function Navbar() {
         <button
           className="md:hidden p-2 text-gray-500 hover:text-gray-900 focus:outline-none"
           onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Menú"
+          aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={menuOpen}
         >
-          ☰
+          {menuOpen ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
         </button>
       </div>
+
+      {/* MENÚ MÓVIL */}
+      {menuOpen && (
+        <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 flex flex-col gap-1.5">
+          {mainNav.map(({ href, label }) => {
+            const isActive = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`px-4 py-3 rounded-xl text-sm font-semibold ${
+                  isActive ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+
+          {esAdmin && (
+            <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-gray-100">
+              <Link
+                href="/admin"
+                className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold text-center"
+              >
+                Crear partido
+              </Link>
+              <Link
+                href="/admin/pagos"
+                className="px-4 py-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 text-sm font-bold text-center"
+              >
+                Pagos
+              </Link>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-gray-100">
+            {usuario ? (
+              <>
+                <Link
+                  href="/creditos"
+                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm font-bold"
+                >
+                  {creditos} créditos
+                </Link>
+
+                <Link
+                  href="/perfil"
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 text-sm font-bold"
+                >
+                  <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-xs">
+                    {usuario.email ? usuario.email[0].toUpperCase() : "U"}
+                  </div>
+                  Perfil
+                </Link>
+
+                <button
+                  onClick={salir}
+                  className="px-4 py-3 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 text-left"
+                >
+                  Cerrar sesión
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-bold text-center hover:bg-green-500"
+              >
+                Ingresar
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

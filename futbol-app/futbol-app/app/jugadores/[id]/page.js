@@ -1,5 +1,7 @@
 import { supabase } from "../../../lib/supabaseClient";
 import PlayerCard from "../../../components/PlayerCard";
+import LogroBadge from "../../../components/LogroBadge";
+import { calcularLogros } from "../../../lib/logros";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -99,31 +101,34 @@ export default async function JugadorDetalle({ params }) {
     asistencias_total: perfil.asistencias_total ?? 0,
   };
 
+  const logros = calcularLogros(st);
+  const logrosDesbloqueados = logros.filter((l) => l.desbloqueado).length;
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-w-6xl mx-auto">
       <Link href="/jugadores" className="text-sm text-cancha-verde hover:underline">
         ← Volver a jugadores
       </Link>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <PlayerCard
-          nombre={perfil.nombre || "Jugador"}
-          posicion={perfil.posicion || "MED"}
-          media={st.media_general}
-          stats={{
-            ritmo: st.ritmo,
-            tiro: st.tiro,
-            pase: st.pase,
-            regate: st.regate,
-            defensa: st.defensa,
-            fisico: st.fisico,
-          }}
-          nivel={st.nivel}
-          partidosJugados={st.partidos_jugados}
-          goles={st.goles_total}
-          asistencias={st.asistencias_total}
-          avatar={perfil.avatar_url}
-        />
+      <div className="grid md:grid-cols-[auto_1fr] gap-8 items-start">
+        <div className="flex justify-center md:sticky md:top-6">
+          <PlayerCard
+            size="lg"
+            nombre={perfil.nombre || "Jugador"}
+            posicion={perfil.posicion || "MED"}
+            media={st.media_general}
+            stats={{
+              ritmo: st.ritmo,
+              tiro: st.tiro,
+              pase: st.pase,
+              regate: st.regate,
+              defensa: st.defensa,
+              fisico: st.fisico,
+            }}
+            nivel={st.nivel}
+            avatar={perfil.avatar_url}
+          />
+        </div>
 
         <div className="flex flex-col gap-4">
           <div className="bg-white rounded-2xl shadow-card p-5">
@@ -145,6 +150,20 @@ export default async function JugadorDetalle({ params }) {
           </div>
 
           <div className="bg-white rounded-2xl shadow-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-700">Logros</h3>
+              <span className="text-xs font-bold text-cancha-verdeoscuro bg-cancha-gris rounded-full px-2.5 py-1">
+                {logrosDesbloqueados}/{logros.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {logros.map((l) => (
+                <LogroBadge key={l.id} label={l.label} desc={l.desc} desbloqueado={l.desbloqueado} />
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-card p-5">
             <h3 className="font-semibold text-gray-700 mb-3">Últimos partidos</h3>
 
             {!historial || historial.length === 0 ? (
@@ -154,16 +173,14 @@ export default async function JugadorDetalle({ params }) {
                 {historial.map((h, i) => (
                   <div
                     key={i}
-                    className={`flex items-center justify-between text-sm py-3 px-3 rounded-xl border ${h.styles.card} last:border-b`}
+                    className={`flex items-center justify-between text-sm py-3 px-3 rounded-xl border ${h.styles.card}`}
                   >
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-gray-700">{h.partidos?.cancha}</p>
 
                         {h.resultado && (
-                          <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${h.styles.badge}`}
-                          >
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${h.styles.badge}`}>
                             {h.styles.label}
                           </span>
                         )}

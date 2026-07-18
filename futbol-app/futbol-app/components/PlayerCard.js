@@ -9,7 +9,7 @@ const TIERS = [
     ring: "ring-blue-400/70",
     glowColor: "rgba(59,130,246,0.6)",
     animClass: "animate-glow-toty",
-    decor: "lightning",
+    decor: null,
   },
   {
     min: 90,
@@ -73,7 +73,6 @@ const SIZES = {
     pad: "px-3 pt-4",
     barPad: "py-1.5",
     barText: "text-[11px]",
-    boltSize: 20,
   },
   md: {
     width: "w-[230px]",
@@ -86,7 +85,6 @@ const SIZES = {
     pad: "px-3 pt-4",
     barPad: "py-1.5",
     barText: "text-[11px]",
-    boltSize: 22,
   },
   lg: {
     width: "w-[300px]",
@@ -99,7 +97,6 @@ const SIZES = {
     pad: "px-6 pt-8",
     barPad: "py-2.5",
     barText: "text-sm",
-    boltSize: 32,
   },
 };
 
@@ -135,20 +132,6 @@ function Sparkle({ className = "", size = 12, delay = "0s", color = "#fff" }) {
       style={{ width: size, height: size, animationDelay: delay }}
     >
       <path d="M12 0 L14.2 9.8 L24 12 L14.2 14.2 L12 24 L9.8 14.2 L0 12 L9.8 9.8 Z" />
-    </svg>
-  );
-}
-
-function Lightning({ className = "", size = 20, delay = "0s", color = "#fff" }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill={color}
-      aria-hidden="true"
-      className={`pointer-events-none absolute animate-lightning motion-reduce:animate-none ${className}`}
-      style={{ width: size, height: size, animationDelay: delay }}
-    >
-      <path d="M13 0 L3 14 H9 L7 24 L21 8 H13 Z" />
     </svg>
   );
 }
@@ -204,18 +187,6 @@ export default function PlayerCard({
           <Sparkle className="top-[8%] left-[14%]" size={14} delay="0s" color={tier.subText} />
           <Sparkle className="top-[18%] right-[10%]" size={10} delay="0.6s" color={tier.subText} />
           <Sparkle className="bottom-[36%] right-[16%]" size={12} delay="1.1s" color={tier.subText} />
-        </>
-      )}
-
-      {tier.decor === "lightning" && (
-        <>
-          <Lightning className="top-[10%] left-[10%]" size={dims.boltSize} delay="0s" color="#bfdbfe" />
-          <Lightning
-            className="bottom-[38%] right-[8%]"
-            size={dims.boltSize * 0.7}
-            delay="1.8s"
-            color="#bfdbfe"
-          />
         </>
       )}
 
