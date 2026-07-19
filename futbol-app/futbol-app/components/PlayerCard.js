@@ -1,3 +1,5 @@
+import { getFlagEmoji } from "../lib/countries";
+
 const TIERS = [
   {
     min: 99,
@@ -36,7 +38,7 @@ const TIERS = [
     decor: null,
   },
   {
-    min: 70,
+    min: 65,
     label: "PLATA",
     cardBg: "linear-gradient(155deg,#f8fafc 0%,#94a3b8 100%)",
     textColor: "#1e293b",
@@ -111,7 +113,6 @@ function Avatar({ src, alt, size }) {
       style={{ width: size, height: size }}
     >
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={alt} className="w-full h-full object-cover" />
       ) : (
         <svg viewBox="0 0 24 24" className="w-2/3 h-2/3 text-slate-400" fill="currentColor">
@@ -152,9 +153,9 @@ function Sheen() {
 export default function PlayerCard({
   nombre = "Jugador",
   posicion = "MED",
-  media = 65,
+  media = 64,
   stats,
-  nivel,
+  nacionalidad,
   avatar,
   mini = false,
   size,
@@ -163,6 +164,7 @@ export default function PlayerCard({
   const resolvedSize = size || (mini ? "mini" : "md");
   const dims = SIZES[resolvedSize] ?? SIZES.md;
   const isMini = resolvedSize === "mini";
+  const bandera = nacionalidad ? getFlagEmoji(nacionalidad) : null;
 
   const attrs = stats
     ? [
@@ -197,7 +199,12 @@ export default function PlayerCard({
         <span className={`${dims.ovr} font-black leading-none`} style={{ color: tier.textColor }}>
           {media}
         </span>
-        <span className={`mt-0.5 ${dims.label} font-bold tracking-wide`} style={{ color: tier.subText }}>
+
+        <span
+          className={`mt-0.5 ${dims.label} font-bold tracking-wide flex items-center gap-1`}
+          style={{ color: tier.subText }}
+        >
+          {bandera && <span aria-hidden="true">{bandera}</span>}
           {posicion}
         </span>
 
@@ -211,12 +218,6 @@ export default function PlayerCard({
         >
           {nombre}
         </p>
-
-        {nivel ? (
-          <p className={`mt-0.5 ${dims.label} font-semibold opacity-80`} style={{ color: tier.subText }}>
-            Nivel {nivel}
-          </p>
-        ) : null}
 
         {!isMini && attrs.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 w-full pb-3">

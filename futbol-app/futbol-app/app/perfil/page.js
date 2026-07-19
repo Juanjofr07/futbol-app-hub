@@ -6,12 +6,30 @@ import PlayerCard from "../../components/PlayerCard";
 import Link from "next/link";
 
 const LOGROS_DEF = [
-  { id: "hat_trick", icon: "🎩", label: "Hat Trick", desc: "Anota 3+ goles en un partido", bonus: "+3 media", condicion: (s) => s.max_goles_partido >= 3 },
-  { id: "portero_valla", icon: "🧤", label: "Valla invicta", desc: "Partido con 0 goles en contra", bonus: "+2 DEF", condicion: (s) => s.vallas_invictas > 0 },
-  { id: "pocos_goles", icon: "🛡️", label: "Defensa sólida", desc: "Partido con menos de 3 goles en contra", bonus: "+2 media, +2 DEF", condicion: (s) => s.partidos_menos3_goles > 0 },
-  { id: "primer_partido", icon: "⚽", label: "Primer partido", desc: "Juega tu primer partido", bonus: "+1 media", condicion: (s) => s.partidos_jugados >= 1 },
-  { id: "veterano", icon: "🏆", label: "Veterano", desc: "Juega 10 partidos", bonus: "+5 media", condicion: (s) => s.partidos_jugados >= 10 },
-  { id: "goleador", icon: "👑", label: "Goleador", desc: "Anota 10 goles en total", bonus: "+3 TIR", condicion: (s) => s.goles_total >= 10 },
+  {
+    id: "primer_partido",
+    icon: "⚽",
+    label: "Primer partido",
+    desc: "Juega tu primer partido",
+    bonus: "+1 media",
+    condicion: (s) => s.partidos_jugados >= 1,
+  },
+  {
+    id: "veterano",
+    icon: "🏆",
+    label: "Veterano",
+    desc: "Juega 10 partidos",
+    bonus: "+5 media",
+    condicion: (s) => s.partidos_jugados >= 10,
+  },
+  {
+    id: "goleador",
+    icon: "👑",
+    label: "Goleador",
+    desc: "Anota 10 goles en total",
+    bonus: "+3 TIR",
+    condicion: (s) => s.goles_total >= 10,
+  },
 ];
 
 export default function Perfil() {
@@ -20,61 +38,80 @@ export default function Perfil() {
   const [cargando, setCargando] = useState(true);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mensajeFoto, setMensajeFoto] = useState("");
+  const [errorCarga, setErrorCarga] = useState("");
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
     async function cargar() {
-      if (!supabase) {
+      try {
+        if (!supabase) {
+          setErrorCarga("Supabase no está disponible.");
+          return;
+        }
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          console.error("Error auth perfil:", userError);
+          setErrorCarga("No se pudo validar la sesión.");
+          return;
+        }
+
+        if (!user) {
+          return;
+        }
+
+        setUserId(user.id);
+
+        const { data: p, error: perfilError } = await supabase
+          .from("perfiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (perfilError) {
+          console.error("Error perfil:", perfilError);
+          setErrorCarga(perfilError.message || "No se pudo cargar el perfil.");
+          return;
+        }
+
+        const partidos_jugados = p.partidos_jugados ?? 0;
+        const goles_total = p.goles_total ?? 0;
+        const victorias = p.victorias ?? 0;
+        const derrotas = p.derrotas ?? 0;
+
+        const promedio_goles =
+          partidos_jugados > 0 ? (goles_total / partidos_jugados).toFixed(2) : "0.00";
+
+        const ratio_vd =
+          derrotas > 0 ? (victorias / derrotas).toFixed(2) : victorias > 0 ? "∞" : "0.00";
+
+        setPerfil(p);
+        setStats({
+          partidos_jugados,
+          goles_total,
+          media_general: p.media_general || 64,
+          ritmo: p.ritmo || 64,
+          tiro: p.tiro || 64,
+          pase: p.pase || 64,
+          regate: p.regate || 64,
+          defensa: p.defensa || 64,
+          fisico: p.fisico || 64,
+          nivel: p.nivel || 1,
+          victorias,
+          derrotas,
+          promedio_goles,
+          ratio_vd,
+        });
+      } catch (error) {
+        console.error("Error general perfil:", error);
+        setErrorCarga("Ocurrió un error cargando el perfil.");
+      } finally {
         setCargando(false);
-        return;
       }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setCargando(false);
-        return;
-      }
-
-      setUserId(user.id);
-
-      const { data: p } = await supabase
-        .from("perfiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const { data: inscripciones } = await supabase
-        .from("inscripciones")
-        .select("goles, asistencias")
-        .eq("usuario_id", user.id);
-
-      const lista = inscripciones || [];
-      const partidos_jugados = lista.length;
-      const goles_total = lista.reduce((acc, i) => acc + (i.goles || 0), 0);
-      const asistencias_total = lista.reduce((acc, i) => acc + (i.asistencias || 0), 0);
-      const max_goles_partido = lista.reduce((max, i) => Math.max(max, i.goles || 0), 0);
-
-      setPerfil(p);
-      setStats({
-        partidos_jugados,
-        goles_total,
-        asistencias_total,
-        media_general: p?.media_general || 65,
-        ritmo: 65,
-        tiro: 63,
-        pase: 62,
-        regate: 65,
-        defensa: 40,
-        fisico: 63,
-        nivel: p?.nivel || 1,
-        max_goles_partido,
-        vallas_invictas: 0,
-        partidos_menos3_goles: 0,
-      });
-      setCargando(false);
     }
 
     cargar();
@@ -111,7 +148,6 @@ export default function Perfil() {
 
       if (uploadError) {
         setMensajeFoto(uploadError.message);
-        setSubiendoFoto(false);
         return;
       }
 
@@ -128,13 +164,13 @@ export default function Perfil() {
 
       if (updateError) {
         setMensajeFoto(updateError.message);
-        setSubiendoFoto(false);
         return;
       }
 
       setPerfil((prev) => ({ ...prev, avatar_url }));
       setMensajeFoto("Foto actualizada correctamente.");
     } catch (error) {
+      console.error("Error subiendo foto:", error);
       setMensajeFoto("Ocurrió un error subiendo la foto.");
     } finally {
       setSubiendoFoto(false);
@@ -145,6 +181,14 @@ export default function Perfil() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin text-4xl">⚽</div>
+      </div>
+    );
+  }
+
+  if (errorCarga) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
+        {errorCarga}
       </div>
     );
   }
@@ -178,21 +222,19 @@ export default function Perfil() {
           <h2 className="font-semibold text-gray-700">🃏 Mi carta</h2>
           <PlayerCard
             nombre={perfil.nombre || "Jugador"}
-            posicion={perfil.posicion || "MED"}
-            media={perfil.media_general || 65}
+            posicion={perfil.posicion_preferida || perfil.posicion || "MED"}
+            media={perfil.media_general || 64}
             stats={{
-              ritmo: stats?.ritmo || 65,
-              tiro: stats?.tiro || 63,
-              pase: stats?.pase || 62,
-              regate: stats?.regate || 65,
-              defensa: stats?.defensa || 40,
-              fisico: stats?.fisico || 63,
+              ritmo: stats?.ritmo || 64,
+              tiro: stats?.tiro || 64,
+              pase: stats?.pase || 64,
+              regate: stats?.regate || 64,
+              defensa: stats?.defensa || 64,
+              fisico: stats?.fisico || 64,
             }}
             nivel={perfil.nivel || 1}
-            partidosJugados={stats?.partidos_jugados || 0}
-            goles={stats?.goles_total || 0}
-            asistencias={stats?.asistencias_total || 0}
             avatar={perfil.avatar_url || null}
+            size="lg"
           />
         </div>
 
@@ -213,7 +255,7 @@ export default function Perfil() {
 
               <div className="flex-1">
                 <p className="font-bold text-gray-800">{perfil.nombre || "Sin nombre"}</p>
-                <p className="text-sm text-gray-500">{perfil.telefono}</p>
+                <p className="text-sm text-gray-500">{perfil.telefono || "Sin teléfono"}</p>
               </div>
             </div>
 
@@ -249,6 +291,47 @@ export default function Perfil() {
               >
                 Recargar
               </Link>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Nacionalidad</p>
+                <p className="font-bold text-gray-800">{perfil.nacionalidad || "No definida"}</p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Posición preferida</p>
+                <p className="font-bold text-gray-800">
+                  {perfil.posicion_preferida || perfil.posicion || "MED"}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Partidos jugados</p>
+                <p className="font-bold text-gray-800">{stats?.partidos_jugados || 0}</p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Ratio victorias / derrotas</p>
+                <p className="font-bold text-gray-800">{stats?.ratio_vd || "0.00"}</p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Goles</p>
+                <p className="font-bold text-gray-800">{stats?.goles_total || 0}</p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Promedio goles / partido</p>
+                <p className="font-bold text-gray-800">{stats?.promedio_goles || "0.00"}</p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3 col-span-2">
+                <p className="text-xs text-gray-500">Récord</p>
+                <p className="font-bold text-gray-800">
+                  {stats?.victorias || 0} victorias · {stats?.derrotas || 0} derrotas
+                </p>
+              </div>
             </div>
           </div>
 

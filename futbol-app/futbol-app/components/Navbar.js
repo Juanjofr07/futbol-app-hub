@@ -17,49 +17,82 @@ export default function Navbar() {
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
+    if (!supabase) return;
 
-    async function cargarPerfil(user) {
-      if (!user) {
+    let activo = true;
+
+    async function cargarPerfil(userId) {
+      if (!userId) {
+        if (!activo) return;
         setEsAdmin(false);
         setCreditos(0);
         return;
       }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("perfiles")
         .select("es_admin, creditos")
-        .eq("id", user.id)
-        .single();
+        .eq("id", userId)
+        .maybeSingle();
 
-      if (!mounted) return;
+      if (!activo) return;
+
+      if (error) {
+        console.error("Error cargando perfil navbar:", error);
+        setEsAdmin(false);
+        setCreditos(0);
+        return;
+      }
 
       setEsAdmin(!!data?.es_admin);
       setCreditos(data?.creditos ?? 0);
     }
 
-    async function inicializar() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    async function iniciar() {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
-      if (!mounted) return;
+        if (!activo) return;
 
-      setUsuario(user ?? null);
-      await cargarPerfil(user ?? null);
+        if (error) {
+          console.error("Error obteniendo usuario navbar:", error);
+          setUsuario(null);
+          setEsAdmin(false);
+          setCreditos(0);
+          return;
+        }
+
+        setUsuario(user ?? null);
+        await cargarPerfil(user?.id ?? null);
+      } catch (err) {
+        console.error("Error inicializando navbar:", err);
+        if (!activo) return;
+        setUsuario(null);
+        setEsAdmin(false);
+        setCreditos(0);
+      }
     }
 
-    inicializar();
+    iniciar();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUsuario(session?.user ?? null);
-      cargarPerfil(session?.user ?? null);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+
+      if (!activo) return;
+
+      setUsuario(user);
+
+      cargarPerfil(user?.id ?? null);
     });
 
     return () => {
-      mounted = false;
-      authListener?.subscription?.unsubscribe();
+      activo = false;
+      subscription?.unsubscribe();
     };
   }, []);
 
@@ -68,13 +101,31 @@ export default function Navbar() {
   }, [pathname]);
 
   async function salir() {
-    setCerrandoSesion(true);
-    await supabase.auth.signOut();
-    setConfirmandoSalir(false);
-    setMenuOpen(false);
-    setCerrandoSesion(false);
-    router.push("/");
-    router.refresh();
+    if (!supabase || cerrandoSesion) return;
+
+    try {
+      setCerrandoSesion(true);
+
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Error cerrando sesión:", error);
+        return;
+      }
+
+      setUsuario(null);
+      setEsAdmin(false);
+      setCreditos(0);
+      setConfirmandoSalir(false);
+      setMenuOpen(false);
+
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      console.error("Error inesperado cerrando sesión:", err);
+    } finally {
+      setCerrandoSesion(false);
+    }
   }
 
   const mainNav = [
@@ -190,7 +241,6 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* MENÚ MÓVIL */}
         {menuOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 flex flex-col gap-1.5">
             {mainNav.map(({ href, label }) => {
@@ -265,7 +315,6 @@ export default function Navbar() {
         )}
       </nav>
 
-      {/* MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN — fuera del <nav> a propósito */}
       {confirmandoSalir && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
