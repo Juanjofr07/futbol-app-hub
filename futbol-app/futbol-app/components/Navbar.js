@@ -86,7 +86,6 @@ export default function Navbar() {
       if (!activo) return;
 
       setUsuario(user);
-
       cargarPerfil(user?.id ?? null);
     });
 
@@ -97,6 +96,7 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    // Cierra el menú móvil al cambiar de ruta
     setMenuOpen(false);
   }, [pathname]);
 
@@ -138,6 +138,7 @@ export default function Navbar() {
     <>
       <nav className="w-full bg-white/90 border-b border-gray-200 sticky top-0 z-50 backdrop-blur-md transition-all shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group" onClick={() => setMenuOpen(false)}>
             <span className="text-2xl">⚽</span>
             <span className="text-gray-900 font-black tracking-tight text-lg flex items-center gap-1">
@@ -145,6 +146,7 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {/* Navegación principal (desktop) */}
           <div className="hidden md:flex items-center p-1 bg-gray-100 rounded-full border border-gray-200/80">
             {mainNav.map(({ href, label }) => {
               const isActive = pathname === href;
@@ -164,26 +166,63 @@ export default function Navbar() {
             })}
           </div>
 
+          {/* Zona derecha (desktop) */}
           <div className="hidden md:flex items-center gap-2 lg:gap-4">
+            {/* Botón Admin + menú, solo si es admin */}
             {esAdmin && (
-              <div className="flex items-center gap-3 mr-2 border-r border-gray-300 pr-4">
-                <Link
-                  href="/admin"
-                  className="px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold hover:bg-emerald-100"
+              <div className="relative mr-2">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold hover:bg-emerald-100 flex items-center gap-1.5"
                 >
-                  Crear partido
-                </Link>
-                <Link
-                  href="/admin/pagos"
-                  className="px-4 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-bold hover:bg-sky-100"
-                >
-                  Pagos
-                </Link>
+                  Admin
+                  <svg
+                    className="w-3 h-3"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      d="M6 9l6 6 6-6"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg text-xs z-50">
+                    <Link
+                      href="/admin"
+                      className="block w-full text-left px-3 py-2 hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Crear partido
+                    </Link>
+                    <Link
+                      href="/admin/pagos"
+                      className="block w-full text-left px-3 py-2 hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Pagos
+                    </Link>
+                    <Link
+                      href="/admin/logros"
+                      className="block w-full text-left px-3 py-2 hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Crear logros
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
             {usuario ? (
               <>
+                {/* Créditos */}
                 <Link
                   href="/creditos"
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm font-bold hover:bg-yellow-100"
@@ -191,6 +230,7 @@ export default function Navbar() {
                   <span>{creditos} créditos</span>
                 </Link>
 
+                {/* Perfil */}
                 <Link
                   href="/perfil"
                   className={`flex items-center gap-2 text-sm font-bold pl-1.5 pr-4 py-1.5 rounded-full transition-all border ${
@@ -205,6 +245,7 @@ export default function Navbar() {
                   <span>Perfil</span>
                 </Link>
 
+                {/* Salir */}
                 <button
                   onClick={() => setConfirmandoSalir(true)}
                   title="Cerrar sesión"
@@ -223,6 +264,7 @@ export default function Navbar() {
             )}
           </div>
 
+          {/* Botón menú móvil */}
           <button
             className="md:hidden p-2 text-gray-500 hover:text-gray-900 focus:outline-none"
             onClick={() => setMenuOpen(!menuOpen)}
@@ -241,6 +283,7 @@ export default function Navbar() {
           </button>
         </div>
 
+        {/* Menú móvil */}
         {menuOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 flex flex-col gap-1.5">
             {mainNav.map(({ href, label }) => {
@@ -252,6 +295,7 @@ export default function Navbar() {
                   className={`px-4 py-3 rounded-xl text-sm font-semibold ${
                     isActive ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"
                   }`}
+                  onClick={() => setMenuOpen(false)}
                 >
                   {label}
                 </Link>
@@ -263,14 +307,23 @@ export default function Navbar() {
                 <Link
                   href="/admin"
                   className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold text-center"
+                  onClick={() => setMenuOpen(false)}
                 >
                   Crear partido
                 </Link>
                 <Link
                   href="/admin/pagos"
                   className="px-4 py-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 text-sm font-bold text-center"
+                  onClick={() => setMenuOpen(false)}
                 >
                   Pagos
+                </Link>
+                <Link
+                  href="/admin/logros"
+                  className="px-4 py-3 rounded-xl bg-violet-50 border border-violet-200 text-violet-700 text-sm font-bold text-center"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Crear logros
                 </Link>
               </div>
             )}
@@ -281,22 +334,27 @@ export default function Navbar() {
                   <Link
                     href="/creditos"
                     className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm font-bold"
+                    onClick={() => setMenuOpen(false)}
                   >
                     {creditos} créditos
                   </Link>
 
-                  <Link
-                    href="/perfil"
-                    className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 text-sm font-bold"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-xs">
-                      {usuario.email ? usuario.email[0].toUpperCase() : "U"}
-                    </div>
-                    Perfil
-                  </Link>
+                    <Link
+                      href="/perfil"
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 text-sm font-bold"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white font-black text-xs">
+                        {usuario.email ? usuario.email[0].toUpperCase() : "U"}
+                      </div>
+                      Perfil
+                    </Link>
 
                   <button
-                    onClick={() => setConfirmandoSalir(true)}
+                    onClick={() => {
+                      setConfirmandoSalir(true);
+                      setMenuOpen(false);
+                    }}
                     className="px-4 py-3 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 text-left"
                   >
                     Cerrar sesión
@@ -306,6 +364,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   className="px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-bold text-center hover:bg-green-500"
+                  onClick={() => setMenuOpen(false)}
                 >
                   Ingresar
                 </Link>
@@ -315,6 +374,7 @@ export default function Navbar() {
         )}
       </nav>
 
+      {/* Modal de confirmación de salir */}
       {confirmandoSalir && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
@@ -348,6 +408,10 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+      )}
+    </>
+  );
+}
       )}
     </>
   );
