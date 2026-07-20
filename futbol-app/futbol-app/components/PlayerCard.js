@@ -1,3 +1,5 @@
+"use client";
+
 import { getFlagEmoji } from "../lib/countries";
 
 const TIERS = [
@@ -67,9 +69,13 @@ const SIZES = {
   mini: {
     width: "w-[150px]",
     avatar: 56,
-    ovr: "text-3xl",
+    ovr: "text-4xl",
+    label: "text-xs",
+    flag: "text-base",
+    posBadge: "text-[9px]",
+    posBadgePad: "px-2.5 py-0.5",
+    posMarginTop: "mt-11",
     name: "text-sm",
-    label: "text-[10px]",
     attrValue: "text-xs",
     attrLabel: "text-[10px]",
     pad: "px-3 pt-4",
@@ -79,9 +85,13 @@ const SIZES = {
   md: {
     width: "w-[230px]",
     avatar: 72,
-    ovr: "text-3xl",
+    ovr: "text-4xl",
+    label: "text-xs",
+    flag: "text-lg",
+    posBadge: "text-[10px]",
+    posBadgePad: "px-3 py-0.5",
+    posMarginTop: "mt-11",
     name: "text-sm",
-    label: "text-[10px]",
     attrValue: "text-xs",
     attrLabel: "text-[10px]",
     pad: "px-3 pt-4",
@@ -91,9 +101,13 @@ const SIZES = {
   lg: {
     width: "w-[300px]",
     avatar: 108,
-    ovr: "text-5xl",
+    ovr: "text-6xl",
+    label: "text-sm",
+    flag: "text-xl",
+    posBadge: "text-xs",
+    posBadgePad: "px-4 py-1",
+    posMarginTop: "mt-16",
     name: "text-xl",
-    label: "text-xs",
     attrValue: "text-base",
     attrLabel: "text-xs",
     pad: "px-6 pt-8",
@@ -102,8 +116,26 @@ const SIZES = {
   },
 };
 
+const POSICION_LABELS = {
+  POR: "PORTERO",
+  DEF: "DEFENSOR",
+  MED: "MEDIOCAMPISTA",
+  DEL: "DELANTERO",
+};
+
 function getTier(media) {
   return TIERS.find((t) => media >= t.min) ?? TIERS[TIERS.length - 1];
+}
+
+function normalizarPosicion(posicion) {
+  const p = String(posicion || "").trim().toUpperCase();
+
+  if (["POR", "PORTERO", "ARQUERO", "GK"].includes(p)) return "POR";
+  if (["DEF", "DEFENSA", "DEFENSOR", "CB", "LB", "RB"].includes(p)) return "DEF";
+  if (["MED", "MEDIO", "MEDIOCAMPO", "MEDIOCAMPISTA", "MC", "MCD", "MCO"].includes(p)) return "MED";
+  if (["DEL", "DELANTERO", "ATACANTE", "ST", "DC", "FW"].includes(p)) return "DEL";
+
+  return "MED";
 }
 
 function Avatar({ src, alt, size }) {
@@ -115,7 +147,7 @@ function Avatar({ src, alt, size }) {
       {src ? (
         <img src={src} alt={alt} className="w-full h-full object-cover" />
       ) : (
-        <svg viewBox="0 0 24 24" className="w-2/3 h-2/3 text-slate-400" fill="currentColor">
+        <svg viewBox="0 0 24 24" className="w-2/3 h-2/3 text-slate-400" fill="currentColor" aria-hidden="true">
           <path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z" />
         </svg>
       )}
@@ -154,28 +186,31 @@ export default function PlayerCard({
   nombre = "Jugador",
   posicion = "MED",
   media = 64,
-  stats,
-  nacionalidad,
-  avatar,
+  stats = null,
+  nacionalidad = null,
+  avatar = null,
   mini = false,
   size,
 }) {
-  const tier = getTier(media);
+  const mediaSegura = Number(media) || 0;
+  const nombreSeguro = nombre?.trim() || "Jugador";
+  const posicionSegura = normalizarPosicion(posicion);
+
+  const tier = getTier(mediaSegura);
   const resolvedSize = size || (mini ? "mini" : "md");
   const dims = SIZES[resolvedSize] ?? SIZES.md;
   const isMini = resolvedSize === "mini";
-  const bandera = nacionalidad ? getFlagEmoji(nacionalidad) : null;
 
-  const attrs = stats
-    ? [
-        { label: "RIT", value: stats.ritmo },
-        { label: "TIR", value: stats.tiro },
-        { label: "PAS", value: stats.pase },
-        { label: "REG", value: stats.regate },
-        { label: "DEF", value: stats.defensa },
-        { label: "FIS", value: stats.fisico },
-      ]
-    : [];
+  const bandera = nacionalidad ? getFlagEmoji(nacionalidad) : "";
+
+  const attrs = [
+    { label: "RIT", value: stats?.ritmo },
+    { label: "TIR", value: stats?.tiro },
+    { label: "PAS", value: stats?.pase },
+    { label: "REG", value: stats?.regate },
+    { label: "DEF", value: stats?.defensa },
+    { label: "FIS", value: stats?.fisico },
+  ];
 
   return (
     <div
@@ -193,33 +228,45 @@ export default function PlayerCard({
       )}
 
       <div className={`relative flex flex-col items-center ${dims.pad}`}>
-        <span className={`${dims.label} font-bold tracking-[0.2em]`} style={{ color: tier.subText }}>
-          OVR
-        </span>
-        <span className={`${dims.ovr} font-black leading-none`} style={{ color: tier.textColor }}>
-          {media}
-        </span>
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center text-center">
+          <span className={`${dims.label} font-bold tracking-[0.2em]`} style={{ color: tier.subText }}>
+            OVR
+          </span>
+          <span className={`${dims.ovr} font-black leading-none`} style={{ color: tier.textColor }}>
+            {mediaSegura}
+          </span>
+        </div>
 
         <span
-          className={`mt-0.5 ${dims.label} font-bold tracking-wide flex items-center gap-1`}
-          style={{ color: tier.subText }}
+          className={`${dims.posMarginTop} ${dims.posBadge} ${dims.posBadgePad} inline-flex items-center gap-1.5 font-bold tracking-wide rounded-full`}
+          style={{ background: tier.barBg, color: tier.subText }}
         >
-          {bandera && <span aria-hidden="true">{bandera}</span>}
-          {posicion}
+          <span>{POSICION_LABELS[posicionSegura]}</span>
+          {bandera ? (
+            <>
+              <span className="opacity-50">|</span>
+              <span
+                className={`${dims.flag} leading-none`}
+                aria-label={String(nacionalidad).toUpperCase()}
+              >
+                {bandera}
+              </span>
+            </>
+          ) : null}
         </span>
 
         <div className="my-3">
-          <Avatar src={avatar} alt={nombre} size={dims.avatar} />
+          <Avatar src={avatar} alt={nombreSeguro} size={dims.avatar} />
         </div>
 
         <p
           className={`text-center ${dims.name} font-extrabold leading-tight line-clamp-2 px-1`}
           style={{ color: tier.textColor }}
         >
-          {nombre}
+          {nombreSeguro}
         </p>
 
-        {!isMini && attrs.length > 0 && (
+        {!isMini && (
           <div className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 w-full pb-3">
             {attrs.map((a) => (
               <div key={a.label} className="flex items-center justify-center gap-1">

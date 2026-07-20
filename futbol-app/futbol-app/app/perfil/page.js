@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import PlayerCard from "../../components/PlayerCard";
 import Link from "next/link";
@@ -41,6 +41,8 @@ export default function Perfil() {
   const [errorCarga, setErrorCarga] = useState("");
   const [userId, setUserId] = useState(null);
 
+  const fileInputRef = useRef(null);
+
   useEffect(() => {
     async function cargar() {
       try {
@@ -60,9 +62,7 @@ export default function Perfil() {
           return;
         }
 
-        if (!user) {
-          return;
-        }
+        if (!user) return;
 
         setUserId(user.id);
 
@@ -78,8 +78,8 @@ export default function Perfil() {
           return;
         }
 
-        const partidos_jugados = p.partidos_jugados ?? 0;
-        const goles_total = p.goles_total ?? 0;
+        const partidos_jugados = p.partidosjugados ?? 0;
+        const goles_total = p.golestotal ?? 0;
         const victorias = p.victorias ?? 0;
         const derrotas = p.derrotas ?? 0;
 
@@ -93,14 +93,13 @@ export default function Perfil() {
         setStats({
           partidos_jugados,
           goles_total,
-          media_general: p.media_general || 64,
+          media_general: p.mediageneral || 64,
           ritmo: p.ritmo || 64,
           tiro: p.tiro || 64,
           pase: p.pase || 64,
           regate: p.regate || 64,
           defensa: p.defensa || 64,
           fisico: p.fisico || 64,
-          nivel: p.nivel || 1,
           victorias,
           derrotas,
           promedio_goles,
@@ -155,11 +154,11 @@ export default function Perfil() {
         .from("avatars")
         .getPublicUrl(filePath);
 
-      const avatar_url = publicUrlData.publicUrl;
+      const avatarUrl = publicUrlData.publicUrl;
 
       const { error: updateError } = await supabase
         .from("perfiles")
-        .update({ avatar_url })
+        .update({ avatar_url: avatarUrl })
         .eq("id", userId);
 
       if (updateError) {
@@ -167,7 +166,7 @@ export default function Perfil() {
         return;
       }
 
-      setPerfil((prev) => ({ ...prev, avatar_url }));
+      setPerfil((prev) => ({ ...prev, avatar_url: avatarUrl }));
       setMensajeFoto("Foto actualizada correctamente.");
     } catch (error) {
       console.error("Error subiendo foto:", error);
@@ -222,8 +221,8 @@ export default function Perfil() {
           <h2 className="font-semibold text-gray-700">🃏 Mi carta</h2>
           <PlayerCard
             nombre={perfil.nombre || "Jugador"}
-            posicion={perfil.posicion_preferida || perfil.posicion || "MED"}
-            media={perfil.media_general || 64}
+            posicion={perfil.posicionpreferida || perfil.posicion || "MED"}
+            media={perfil.mediageneral || 64}
             stats={{
               ritmo: stats?.ritmo || 64,
               tiro: stats?.tiro || 64,
@@ -232,8 +231,8 @@ export default function Perfil() {
               defensa: stats?.defensa || 64,
               fisico: stats?.fisico || 64,
             }}
-            nivel={perfil.nivel || 1}
             avatar={perfil.avatar_url || null}
+            nacionalidad={perfil.nacionalidad || null}
             size="lg"
           />
         </div>
@@ -259,22 +258,55 @@ export default function Perfil() {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                Subir foto de perfil
-              </label>
+            {/* Subir / cambiar foto de perfil con mejor UI */}
+            <div className="mt-4 flex flex-col gap-3">
+              <p className="text-xs text-gray-500">
+                Foto de perfil
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cancha-verde text-white text-xs font-semibold shadow-sm hover:bg-cancha-verdeoscuro transition-colors active:scale-[0.97]"
+                  disabled={subiendoFoto}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12v8m0-8l-3 3m3-3l3 3M5 12l1.5-4.5A2 2 0 018.4 6h7.2a2 2 0 011.9 1.5L19 12"
+                    />
+                  </svg>
+                  {perfil.avatar_url ? "Cambiar foto de perfil" : "Subir foto de perfil"}
+                </button>
+
+                {subiendoFoto && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-cancha-gris text-[11px] text-gray-600">
+                    Subiendo foto...
+                  </span>
+                )}
+              </div>
+
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={subirFoto}
-                className="text-sm text-gray-600"
+                className="hidden"
                 disabled={subiendoFoto}
               />
-              {subiendoFoto && (
-                <p className="text-xs text-gray-500">Subiendo foto...</p>
-              )}
+
               {mensajeFoto && (
-                <p className="text-xs text-gray-500">{mensajeFoto}</p>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  {mensajeFoto}
+                </p>
               )}
             </div>
 
@@ -302,7 +334,7 @@ export default function Perfil() {
               <div className="bg-cancha-gris rounded-xl p-3">
                 <p className="text-xs text-gray-500">Posición preferida</p>
                 <p className="font-bold text-gray-800">
-                  {perfil.posicion_preferida || perfil.posicion || "MED"}
+                  {perfil.posicionpreferida || perfil.posicion || "MED"}
                 </p>
               </div>
 
