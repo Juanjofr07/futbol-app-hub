@@ -48,16 +48,20 @@ function valor(...opciones) {
 export default function Perfil() {
   const [perfil, setPerfil] = useState(null);
   const [stats, setStats] = useState(null);
+  const [esAdmin, setEsAdmin] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mensajeFoto, setMensajeFoto] = useState("");
   const [errorCarga, setErrorCarga] = useState("");
   const [userId, setUserId] = useState(null);
+  const [mensajeAdmin, setMensajeAdmin] = useState("");
+  const [aplicandoObjetivos, setAplicandoObjetivos] = useState(false);
 
   useEffect(() => {
     async function cargar() {
       try {
         setErrorCarga("");
+        setMensajeAdmin("");
 
         if (!supabase) {
           setErrorCarga("Supabase no está disponible.");
@@ -126,9 +130,11 @@ export default function Perfil() {
           media: Number(valor(p.mediageneral, p.media_general, 64)),
           avatar: valor(p.avatarurl, p.avatar_url, null),
           creditos: Number(valor(p.creditos, 0)),
+          es_admin: Boolean(p.es_admin), // columna booleana en perfiles
         };
 
         setPerfil(perfilNormalizado);
+        setEsAdmin(perfilNormalizado.es_admin);
 
         setStats({
           partidos_jugados,
@@ -161,6 +167,7 @@ export default function Perfil() {
     if (!file || !supabase || !userId) return;
 
     setMensajeFoto("");
+    setMensajeAdmin("");
 
     if (!file.type.startsWith("image/")) {
       setMensajeFoto("Solo puedes subir imágenes.");
@@ -254,9 +261,9 @@ export default function Perfil() {
     );
   }
 
+  // Logros y bonos
   const logrosDesbloqueados = LOGROS_DEF.filter((l) => l.condicion(stats));
 
-  // === BONOS APLICADOS SOLO EN LA CARTA ===
   const bonusMediaTotal = logrosDesbloqueados.reduce(
     (acc, l) => acc + (l.bonusMedia || 0),
     0
@@ -288,6 +295,40 @@ export default function Perfil() {
     fisico: stats.fisico + (bonusStats.fisico || 0),
   };
 
+  // Acción de admin para guardar bonos en Supabase
+  async function aplicarObjetivosComoAdmin() {
+    if (!supabase || !userId) return;
+    setMensajeAdmin("");
+    setAplicandoObjetivos(true);
+
+    try {
+      const { error } = await supabase
+        .from("perfiles")
+        .update({
+          media_general: mediaConBonos,
+          ritmo: statsConBonos.ritmo,
+          tiro: statsConBonos.tiro,
+          pase: statsConBonos.pase,
+          regate: statsConBonos.regate,
+          defensa: statsConBonos.defensa,
+          fisico: statsConBonos.fisico,
+        })
+        .eq("id", userId);
+
+      if (error) {
+        console.error("Error al aplicar objetivos:", error);
+        setMensajeAdmin(error.message || "Error al aplicar objetivos.");
+      } else {
+        setMensajeAdmin("Objetivos aplicados. Carta y Jugadores actualizados.");
+      }
+    } catch (e) {
+      console.error(e);
+      setMensajeAdmin("Error inesperado al aplicar objetivos.");
+    } finally {
+      setAplicandoObjetivos(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold text-gray-800">Mi perfil</h1>
@@ -307,12 +348,165 @@ export default function Perfil() {
           />
         </div>
 
-        {/* Panel derecho (foto, créditos, stats rápidas, logros) */}
+        {/* Panel derecho */}
         <div className="flex flex-col gap-4">
-          {/* ... todo tu panel igual ... */}
           <div className="bg-white rounded-2xl shadow-card p-5">
-            {/* contenido de foto, créditos, stats rápidas */}
-            {/* (igual que el código que ya tienes, no lo repito por longitud) */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-cancha-verde/20 flex items-center justify-center text-cancha-verdeoscuro font-bold text-xl">
+                {perfil.avatar ? (
+                  <img
+                    src={perfil.avatar}
+                    alt="Foto de perfil"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  perfil.nombre.slice(0, 2).toUpperCase()
+                )}
+              </div>
+
+              <div className="flex-1">
+                <p className="font-bold text-gray-800">
+                  {perfil.nombre || "Sin nombre"}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {perfil.telefono || "Sin teléfono"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3">
+              <p className="text-xs text-gray-500">Foto de perfil</p>
+
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cancha-verde text-white text-xs font-semibold shadow-sm hover:bg-cancha-verdeoscuro transition-colors active:scale-[0.97] cursor-pointer">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12v8m0-8l-3 3m3-3l3 3M5 12l1.5-4.5A2 2 0 018.4 6h7.2a2 2 0 011.9 1.5L19 12"
+                    />
+                  </svg>
+                  Cambiar foto de perfil
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={subirFoto}
+                    className="hidden"
+                    disabled={subiendoFoto}
+                  />
+                </label>
+
+                {subiendoFoto && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-cancha-gris text-[11px] text-gray-600">
+                    Subiendo foto...
+                  </span>
+                )}
+              </div>
+
+              {mensajeFoto && (
+                <p className="text-[11px] text-gray-500 mt-1">{mensajeFoto}</p>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between bg-cancha-gris rounded-xl p-3">
+              <div>
+                <p className="text-xs text-gray-500">Créditos disponibles</p>
+                <p className="font-black text-cancha-verdeoscuro text-xl">
+                  {perfil.creditos || 0} ⚡
+                </p>
+              </div>
+              <Link
+                href="/creditos"
+                className="px-3 py-1.5 bg-cancha-verde text-white text-xs font-semibold rounded-lg hover:bg-cancha-verdeoscuro transition-colors"
+              >
+                Recargar
+              </Link>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Nacionalidad</p>
+                <p className="font-bold text-gray-800">
+                  {perfil.nacionalidad || "No definida"}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Posición preferida</p>
+                <p className="font-bold text-gray-800">
+                  {perfil.posicion || "MED"}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Partidos jugados</p>
+                <p className="font-bold text-gray-800">
+                  {stats.partidos_jugados || 0}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">
+                  Ratio victorias / derrotas
+                </p>
+                <p className="font-bold text-gray-800">
+                  {stats.ratio_vd || "0.00"}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">Goles</p>
+                <p className="font-bold text-gray-800">
+                  {stats.goles_total || 0}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3">
+                <p className="text-xs text-gray-500">
+                  Promedio goles / partido
+                </p>
+                <p className="font-bold text-gray-800">
+                  {stats.promedio_goles || "0.00"}
+                </p>
+              </div>
+
+              <div className="bg-cancha-gris rounded-xl p-3 col-span-2">
+                <p className="text-xs text-gray-500">Récord</p>
+                <p className="font-bold text-gray-800">
+                  {stats.victorias || 0} victorias · {stats.derrotas || 0} derrotas
+                </p>
+              </div>
+            </div>
+
+            {/* Bloque de herramientas solo para admin */}
+            {esAdmin && (
+              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex flex-col gap-2">
+                <p className="text-xs font-semibold text-yellow-800">
+                  Herramientas de admin
+                </p>
+                <button
+                  type="button"
+                  onClick={aplicarObjetivosComoAdmin}
+                  disabled={aplicandoObjetivos}
+                  className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {aplicandoObjetivos
+                    ? "Aplicando objetivos..."
+                    : "Aplicar objetivos a la carta"}
+                </button>
+                {mensajeAdmin && (
+                  <p className="text-[11px] text-yellow-900 mt-1">
+                    {mensajeAdmin}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl shadow-card p-5">
@@ -347,5 +541,7 @@ export default function Perfil() {
         </div>
       </div>
     </div>
+  );
+}
   );
 }
