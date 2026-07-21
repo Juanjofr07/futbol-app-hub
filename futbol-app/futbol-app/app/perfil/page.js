@@ -1,344 +1,205 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import PlayerCard from "../../components/PlayerCard";
-import LogroBadge from "../../components/LogroBadge";
-import { bonusLabel } from "../../lib/logros";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../../lib/supabaseClient';
+import FutbolPlayerCard from '../../components/FutbolPlayerCard';
+import PadelPlayerCard from '../../components/PadelPlayerCard';
 
-export default function Perfil() {
+// ─────────────────────────────────────────
+// Pestaña activa: 'futbol' | 'padel'
+// ─────────────────────────────────────────
+
+export default function PerfilPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('futbol');
+
+  // Datos de usuario base
+  const [usuario, setUsuario] = useState(null);
   const [perfil, setPerfil] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [logros, setLogros] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const [mensajeFoto, setMensajeFoto] = useState("");
-  const [errorCarga, setErrorCarga] = useState("");
-  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Perfil de fútbol
+  const [futbolProfile, setFutbolProfile] = useState(null);
+
+  // Perfil de pádel
+  const [padelProfile, setPadelProfile] = useState(null);
 
   useEffect(() => {
+    if (!supabase) return;
+
     async function cargar() {
+      setLoading(true);
       try {
-        if (!supabase) {
-          setErrorCarga("Supabase no está disponible.");
-          return;
-        }
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) { router.push('/login'); return; }
+        setUsuario(user);
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+        // Perfil base
+        const { data: perfilData } = await supabase
+          .from('perfiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        setPerfil(perfilData);
 
-        if (userError) {
-          console.error("Error auth perfil:", userError);
-          setErrorCarga("No se pudo validar la sesión.");
-          return;
-        }
+        // Perfil fútbol
+        const { data: futData } = await supabase
+          .from('futbol_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setFutbolProfile(futData);
 
-        if (!user) return;
-
-        setUserId(user.id);
-
-        const [{ data: p, error: perfilError }, { data: logrosCatalogo }, { data: logrosUsuario }] =
-          await Promise.all([
-            supabase.from("perfiles").select("*").eq("id", user.id).single(),
-            supabase.from("logros").select("*").eq("activo", true).order("created_at", { ascending: true }),
-            supabase.from("logros_desbloqueados").select("logro_id").eq("usuario_id", user.id),
-          ]);
-
-        if (perfilError) {
-          console.error("Error perfil:", perfilError);
-          setErrorCarga(perfilError.message || "No se pudo cargar el perfil.");
-          return;
-        }
-
-        const partidos_jugados = p.partidos_jugados ?? 0;
-        const goles_total = p.goles_total ?? 0;
-        const victorias = p.victorias ?? 0;
-        const derrotas = p.derrotas ?? 0;
-
-        const promedio_goles =
-          partidos_jugados > 0 ? (goles_total / partidos_jugados).toFixed(2) : "0.00";
-
-        const ratio_vd =
-          derrotas > 0 ? (victorias / derrotas).toFixed(2) : victorias > 0 ? "∞" : "0.00";
-
-        setPerfil(p);
-        setStats({
-          partidos_jugados,
-          goles_total,
-          media_general: p.media_general || 64,
-          ritmo: p.ritmo || 64,
-          tiro: p.tiro || 64,
-          pase: p.pase || 64,
-          regate: p.regate || 64,
-          defensa: p.defensa || 64,
-          fisico: p.fisico || 64,
-          victorias,
-          derrotas,
-          promedio_goles,
-          ratio_vd,
-        });
-
-        const idsDesbloqueados = new Set((logrosUsuario || []).map((d) => d.logro_id));
-        setLogros(
-          (logrosCatalogo || []).map((l) => ({
-            ...l,
-            desbloqueado: idsDesbloqueados.has(l.id),
-          }))
-        );
-      } catch (error) {
-        console.error("Error general perfil:", error);
-        setErrorCarga("Ocurrió un error cargando el perfil.");
+        // Perfil pádel
+        const { data: padData } = await supabase
+          .from('padel_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setPadelProfile(padData);
       } finally {
-        setCargando(false);
+        setLoading(false);
       }
     }
 
     cargar();
   }, []);
 
-  async function subirFoto(e) {
-    const file = e.target.files?.[0];
-    if (!file || !supabase || !userId) return;
-
-    setMensajeFoto("");
-
-    if (!file.type.startsWith("image/")) {
-      setMensajeFoto("Solo puedes subir imágenes.");
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setMensajeFoto("La imagen no puede pesar más de 2MB.");
-      return;
-    }
-
-    try {
-      setSubiendoFoto(true);
-
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const filePath = `${userId}/avatar.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: true,
-        });
-
-      if (uploadError) {
-        setMensajeFoto(uploadError.message);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      const avatar_url = publicUrlData.publicUrl;
-
-      const { error: updateError } = await supabase
-        .from("perfiles")
-        .update({ avatar_url })
-        .eq("id", userId);
-
-      if (updateError) {
-        setMensajeFoto(updateError.message);
-        return;
-      }
-
-      setPerfil((prev) => ({ ...prev, avatar_url }));
-      setMensajeFoto("Foto actualizada correctamente.");
-    } catch (error) {
-      console.error("Error subiendo foto:", error);
-      setMensajeFoto("Ocurrió un error subiendo la foto.");
-    } finally {
-      setSubiendoFoto(false);
-    }
-  }
-
-  if (cargando) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin text-4xl">⚽</div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500" />
       </div>
     );
   }
-
-  if (errorCarga) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4">
-        {errorCarga}
-      </div>
-    );
-  }
-
-  if (!perfil) {
-    return (
-      <div className="flex flex-col items-center gap-6 py-16">
-        <div className="text-6xl">🔐</div>
-        <h1 className="text-2xl font-bold text-gray-800">Accede a tu perfil</h1>
-        <p className="text-gray-500 text-center max-w-sm">
-          Inicia sesión para ver tu carta de jugador, tus estadísticas y tus logros.
-        </p>
-        <Link
-          href="/login"
-          className="px-6 py-3 bg-cancha-verde text-white font-bold rounded-xl hover:bg-cancha-verdeoscuro transition-colors"
-        >
-          Iniciar sesión
-        </Link>
-      </div>
-    );
-  }
-
-  const logrosDesbloqueados = logros.filter((l) => l.desbloqueado).length;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-gray-800">Mi perfil</h1>
+    <div className="max-w-3xl mx-auto py-8 px-4">
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="flex flex-col gap-3">
-          <h2 className="font-semibold text-gray-700">🃏 Mi carta</h2>
-          <PlayerCard
-            nombre={perfil.nombre || "Jugador"}
-            posicion={perfil.posicion_preferida || perfil.posicion || "MED"}
-            media={perfil.media_general || 64}
-            stats={{
-              ritmo: stats?.ritmo || 64,
-              tiro: stats?.tiro || 64,
-              pase: stats?.pase || 64,
-              regate: stats?.regate || 64,
-              defensa: stats?.defensa || 64,
-              fisico: stats?.fisico || 64,
-            }}
-            avatar={perfil.avatar_url || null}
-            nacionalidad={perfil.nacionalidad || null}
-            size="lg"
-          />
+      {/* Header del perfil */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow">
+          {perfil?.avatar_url
+            ? <img src={perfil.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            : <span>{usuario?.email?.[0]?.toUpperCase() ?? 'U'}</span>
+          }
         </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-2xl shadow-card p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full overflow-hidden bg-cancha-verde/20 flex items-center justify-center text-cancha-verdeoscuro font-bold text-xl">
-                {perfil.avatar_url ? (
-                  <img
-                    src={perfil.avatar_url}
-                    alt="Foto de perfil"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  perfil.nombre ? perfil.nombre.slice(0, 2).toUpperCase() : "?"
-                )}
-              </div>
-
-              <div className="flex-1">
-                <p className="font-bold text-gray-800">{perfil.nombre || "Sin nombre"}</p>
-                <p className="text-sm text-gray-500">{perfil.telefono || "Sin teléfono"}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                Subir foto de perfil
-              </label>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={subirFoto}
-                className="text-sm text-gray-600"
-                disabled={subiendoFoto}
-              />
-              {subiendoFoto && <p className="text-xs text-gray-500">Subiendo foto...</p>}
-              {mensajeFoto && <p className="text-xs text-gray-500">{mensajeFoto}</p>}
-            </div>
-
-            <div className="mt-4 flex items-center justify-between bg-cancha-gris rounded-xl p-3">
-              <div>
-                <p className="text-xs text-gray-500">Créditos disponibles</p>
-                <p className="font-black text-cancha-verdeoscuro text-xl">
-                  {perfil.creditos || 0} ⚡
-                </p>
-              </div>
-              <Link
-                href="/creditos"
-                className="px-3 py-1.5 bg-cancha-verde text-white text-xs font-semibold rounded-lg hover:bg-cancha-verdeoscuro transition-colors"
-              >
-                Recargar
-              </Link>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="bg-cancha-gris rounded-xl p-3">
-                <p className="text-xs text-gray-500">Nacionalidad</p>
-                <p className="font-bold text-gray-800">{perfil.nacionalidad || "No definida"}</p>
-              </div>
-
-              <div className="bg-cancha-gris rounded-xl p-3">
-                <p className="text-xs text-gray-500">Posición preferida</p>
-                <p className="font-bold text-gray-800">
-                  {perfil.posicion_preferida || perfil.posicion || "MED"}
-                </p>
-              </div>
-
-              <div className="bg-cancha-gris rounded-xl p-3">
-                <p className="text-xs text-gray-500">Partidos jugados</p>
-                <p className="font-bold text-gray-800">{stats?.partidos_jugados || 0}</p>
-              </div>
-
-              <div className="bg-cancha-gris rounded-xl p-3">
-                <p className="text-xs text-gray-500">Ratio victorias / derrotas</p>
-                <p className="font-bold text-gray-800">{stats?.ratio_vd || "0.00"}</p>
-              </div>
-
-              <div className="bg-cancha-gris rounded-xl p-3">
-                <p className="text-xs text-gray-500">Goles</p>
-                <p className="font-bold text-gray-800">{stats?.goles_total || 0}</p>
-              </div>
-
-              <div className="bg-cancha-gris rounded-xl p-3">
-                <p className="text-xs text-gray-500">Promedio goles / partido</p>
-                <p className="font-bold text-gray-800">{stats?.promedio_goles || "0.00"}</p>
-              </div>
-
-              <div className="bg-cancha-gris rounded-xl p-3 col-span-2">
-                <p className="text-xs text-gray-500">Récord</p>
-                <p className="font-bold text-gray-800">
-                  {stats?.victorias || 0} victorias · {stats?.derrotas || 0} derrotas
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-gray-700">🏆 Logros</h2>
-              <span className="text-xs font-bold text-cancha-verdeoscuro bg-cancha-gris rounded-full px-2.5 py-1">
-                {logrosDesbloqueados}/{logros.length}
-              </span>
-            </div>
-
-            {logros.length === 0 ? (
-              <p className="text-sm text-gray-400">Todavía no hay logros disponibles.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {logros.map((l) => (
-                  <LogroBadge
-                    key={l.id}
-                    label={l.nombre}
-                    desc={l.descripcion}
-                    bonus={bonusLabel(l)}
-                    desbloqueado={l.desbloqueado}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">{perfil?.nombre ?? usuario?.email}</h1>
+          <p className="text-sm text-gray-500">{usuario?.email}</p>
         </div>
       </div>
+
+      {/* Tabs Fútbol / Pádel */}
+      <div className="flex gap-2 mb-8 bg-gray-100 p-1 rounded-full w-fit border border-gray-200">
+        <button
+          onClick={() => setActiveTab('futbol')}
+          className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
+            activeTab === 'futbol'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          ⚽ Fútbol
+        </button>
+        <button
+          onClick={() => setActiveTab('padel')}
+          className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
+            activeTab === 'padel'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          🎾 Pádel
+        </button>
+      </div>
+
+      {/* Contenido por tab */}
+      {activeTab === 'futbol' && (
+        <div className="flex flex-col items-center gap-6">
+          {futbolProfile ? (
+            <>
+              <FutbolPlayerCard
+                nombre={perfil?.nombre ?? usuario?.email}
+                posicion={futbolProfile.posicion}
+                media={futbolProfile.media}
+                stats={{
+                  ritmo: futbolProfile.ritmo,
+                  tiro: futbolProfile.tiro,
+                  pase: futbolProfile.pase,
+                  regate: futbolProfile.regate,
+                  defensa: futbolProfile.defensa,
+                  fisico: futbolProfile.fisico,
+                }}
+                nacionalidad={perfil?.nacionalidad}
+                avatar={perfil?.avatar_url}
+                size="lg"
+              />
+              <div className="grid grid-cols-3 gap-4 w-full mt-4 text-center">
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <p className="text-2xl font-black text-gray-900">{futbolProfile.goles ?? 0}</p>
+                  <p className="text-xs text-gray-500 font-semibold mt-1">Goles</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <p className="text-2xl font-black text-gray-900">{futbolProfile.asistencias ?? 0}</p>
+                  <p className="text-xs text-gray-500 font-semibold mt-1">Asistencias</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <p className="text-2xl font-black text-gray-900">{futbolProfile.tarjetas_amarillas ?? 0}</p>
+                  <p className="text-xs text-gray-500 font-semibold mt-1">Tarjetas</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-16 flex flex-col items-center gap-4">
+              <span className="text-5xl">⚽</span>
+              <h3 className="text-lg font-bold text-gray-800">Aún no tienes perfil de fútbol</h3>
+              <p className="text-sm text-gray-500 max-w-xs">Juega tu primer partido para que tu carta de jugador se cree automáticamente.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'padel' && (
+        <div className="flex flex-col items-center gap-6">
+          {padelProfile ? (
+            <>
+              <PadelPlayerCard
+                nombre={perfil?.nombre ?? usuario?.email}
+                nivel={padelProfile.nivel}
+                lado={padelProfile.lado}
+                victorias={padelProfile.victorias}
+                derrotas={padelProfile.derrotas}
+                puntos={padelProfile.puntos}
+                nacionalidad={perfil?.nacionalidad}
+                avatar={perfil?.avatar_url}
+                size="lg"
+              />
+              <div className="grid grid-cols-3 gap-4 w-full mt-4 text-center">
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <p className="text-2xl font-black text-gray-900">{padelProfile.victorias ?? 0}</p>
+                  <p className="text-xs text-gray-500 font-semibold mt-1">Victorias</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <p className="text-2xl font-black text-gray-900">{padelProfile.derrotas ?? 0}</p>
+                  <p className="text-xs text-gray-500 font-semibold mt-1">Derrotas</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <p className="text-2xl font-black text-gray-900">{padelProfile.puntos ?? 1000}</p>
+                  <p className="text-xs text-gray-500 font-semibold mt-1">Puntos ELO</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-16 flex flex-col items-center gap-4">
+              <span className="text-5xl">🎾</span>
+              <h3 className="text-lg font-bold text-gray-800">Aún no tienes perfil de pádel</h3>
+              <p className="text-sm text-gray-500 max-w-xs">Juega tu primer partido de pádel para que tu carta se genere.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
